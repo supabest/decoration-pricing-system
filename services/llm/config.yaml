@@ -1,0 +1,5 @@
+model: /models/qwen2.5-7b-instruct
+served_model_name: qwen
+tensor_parallel_size: 1
+gpu_memory_utilization: 0.9
+max_model_len: 8192

@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project
+uploads/
+data/vector_indexes/*
+!data/vector_indexes/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Reports
+*.pdf
+*.xlsx
+!data/seeds/*.xlsx
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+
+# Docker
+docker-data/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage/
+
+# Database
+*.db
+*.sqlite3
+
+# Alembic
+backend/app/db/migrations/versions/*.pyc
+
+# Vector DB
+services/vector-db/data/
+
+# Celery
+celerybeat-schedule*
