@@ -1,0 +1,20 @@
+[
+  {
+    "quota_code": "DEC-001",
+    "quota_name": "轻钢龙骨石膏板吊顶",
+    "decoration_type": "吊顶",
+    "unit": "m²"
+  },
+  {
+    "quota_code": "DEC-002",
+    "quota_name": "木地板铺装",
+    "decoration_type": "地面",
+    "unit": "m²"
+  },
+  {
+    "quota_code": "DEC-003",
+    "quota_name": "墙面瓷砖拆除",
+    "decoration_type": "拆除",
+    "unit": "m²"
+  }
+]

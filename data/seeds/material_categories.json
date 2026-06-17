@@ -1,0 +1,12 @@
+[
+  {"id": 1, "name": "瓷砖", "parent_id": null},
+  {"id": 2, "name": "地板", "parent_id": null},
+  {"id": 3, "name": "涂料", "parent_id": null},
+  {"id": 4, "name": "卫浴", "parent_id": null},
+  {"id": 5, "name": "灯具", "parent_id": null},
+  {"id": 6, "name": "门窗", "parent_id": null},
+  {"id": 7, "name": "五金", "parent_id": null},
+  {"id": 8, "name": "管材", "parent_id": null},
+  {"id": 9, "name": "电线电缆", "parent_id": null},
+  {"id": 10, "name": "辅助材料", "parent_id": null}
+]

@@ -1,0 +1,5 @@
+log_level: INFO
+storage:
+  optimizers:
+    default_segment_number: 2
+    indexing_threshold: 10000

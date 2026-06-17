@@ -1,0 +1,6 @@
+-r base.txt
+# AI 依赖
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-community>=0.3.0
+sentence-transformers>=3.0.0

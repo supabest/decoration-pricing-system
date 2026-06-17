@@ -1,0 +1,3 @@
+FROM vllm/vllm-openai:latest
+# 部署时挂载模型
+# docker run --gpus all -v /models:/models ...

@@ -1,0 +1,26 @@
+[
+  {
+    "quota_code": "GB-01001",
+    "quota_name": "地面砖铺贴（水泥砂浆）",
+    "work_type": "铺贴",
+    "decoration_type": "地面",
+    "unit": "m²",
+    "work_content": "清理基层、调制砂浆、铺贴面砖、擦缝"
+  },
+  {
+    "quota_code": "GB-01002",
+    "quota_name": "墙面砖铺贴（水泥砂浆）",
+    "work_type": "铺贴",
+    "decoration_type": "墙面",
+    "unit": "m²",
+    "work_content": "清理基层、调制砂浆、铺贴面砖、擦缝"
+  },
+  {
+    "quota_code": "GB-02001",
+    "quota_name": "内墙乳胶漆涂刷",
+    "work_type": "涂刷",
+    "decoration_type": "墙面",
+    "unit": "m²",
+    "work_content": "基层处理、刮腻子、涂刷底漆、面漆"
+  }
+]
