@@ -4,11 +4,11 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "装修工程AI套价系统"
-    APP_VERSION: str = "0.1.0"
+    APP_NAME: str = "装修成本分析系统"
+    APP_VERSION: str = "0.2.0"
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
-    SECRET_KEY: str = "change-me"
+    SECRET_KEY: str = "change-me-to-a-random-secret-in-production"
 
     # Database
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/pricing"

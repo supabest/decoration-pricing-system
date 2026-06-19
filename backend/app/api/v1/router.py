@@ -1,6 +1,8 @@
 """API v1 路由汇总"""
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
+    auth,
+    benchmark,
     enterprise_price,
     material_price,
     quota,
@@ -13,6 +15,8 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 
+api_router.include_router(auth.router, prefix="/auth", tags=["认证"])
+api_router.include_router(benchmark.router, prefix="/benchmark-prices", tags=["成本基准价"])
 api_router.include_router(enterprise_price.router, prefix="/enterprise-prices", tags=["企业基准价"])
 api_router.include_router(material_price.router, prefix="/material-prices", tags=["材料价格"])
 api_router.include_router(quota.router, prefix="/quotas", tags=["定额管理"])

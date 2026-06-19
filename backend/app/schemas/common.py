@@ -24,7 +24,7 @@ class Page(BaseModel, Generic[T]):
 class ApiResponse(BaseModel, Generic[T]):
     code: int = 200
     message: str = "success"
-    data: T | None = None
+    data: Optional[T] = None
 
 
 class BatchOperationRequest(BaseModel):

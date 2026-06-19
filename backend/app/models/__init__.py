@@ -9,6 +9,8 @@ from app.models.project import Project
 from app.models.bill_item import BillItem
 from app.models.pricing_result import PricingResult
 from app.models.price_history import PriceHistory
+from app.models.user import User
+from app.models.benchmark_price import BenchmarkPrice
 
 __all__ = [
     "Base",
@@ -17,4 +19,6 @@ __all__ = [
     "Quota", "QuotaItem",
     "Project", "BillItem",
     "PricingResult", "PriceHistory",
+    "User",
+    "BenchmarkPrice",
 ]
