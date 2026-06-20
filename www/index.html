@@ -292,7 +292,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
         <input class="auth-input" id="regPwd2" type="password" placeholder="再次输入密码" required>
       </div>
       <div class="auth-tip">
-        📋 注册后需要管理员审批通过才能使用系统。
+        📋 注册后请先到邮箱点确认链接，然后等待管理员审批通过即可使用。
       </div>
       <button class="auth-btn" id="regBtn" type="submit">注册并提交审批</button>
       <div style="text-align:center;margin-top:16px">
@@ -1834,7 +1834,7 @@ async function doRegister() {
     btn.disabled = false; btn.textContent = '注册并提交审批';
     return false;
   }
-  document.getElementById('authOk').textContent = '✅ 注册成功！请等待管理员审批通过后登录使用。';
+  document.getElementById('authOk').textContent = '✅ 注册成功！请先到邮箱点确认链接，然后等待管理员审批通过后登录使用。';
   document.getElementById('authOk').style.display = '';
   btn.disabled = false; btn.textContent = '注册并提交审批';
   document.getElementById('loginForm').style.display = '';
