@@ -173,7 +173,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
 
 // 简单 Supabase 客户端
 const SB = {
-  _token: null,
+  _token: localStorage.getItem('sb-access-token'),
   _refreshPromise: null,
 
   async _refreshSession() {
