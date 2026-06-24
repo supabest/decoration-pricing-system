@@ -236,6 +236,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
     <button class="btn btn-sm" onclick="openBenchNote()" title="查看基准价编制说明">📋 基准价说明</button>
     <button class="btn btn-sm" onclick="openFeedback()" style="color:var(--acc);border-color:var(--acc)" title="反馈套价问题，帮助持续改进工具">💡 意见反馈</button>
     <a href="admin.html" class="btn btn-sm" style="color:var(--acc);border-color:var(--acc);text-decoration:none">⚙ 管理</a>
+    <span id="userNameDisplay" style="font-size:12px;color:var(--tx2);margin-left:6px"></span>
+    <button class="btn btn-sm" onclick="doLogoutTool()" style="color:var(--red);border-color:var(--red);padding:3px 8px;font-size:11px">退出</button>
   </div>
 </div>
 <div class="layout">
@@ -420,6 +422,7 @@ const _post=async(t,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(S
 const _patch=async(t,id,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify(b)})};
 const _del=async(t,id)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'DELETE',headers:h})};
 const CURRENT_USER = JSON.parse(localStorage.getItem('sb-user')||'null');
+document.addEventListener('DOMContentLoaded', function() { var el = document.getElementById('userNameDisplay'); if(el && CURRENT_USER) el.textContent = CURRENT_USER.email || CURRENT_USER.id || ''; });
 let AI_KNOWLEDGE = {tips:[],synonyms:[],rules:[]};
 // ═══════════ BENCHMARK DATA ═══════════
 let DB_EMBEDDED = {"泥水班组":[{"id":"NS-01","name":"地面-水泥砂浆找平","unit":"m2","price":20.0},{"id":"NS-08","name":"地面铺设-瓷砖地面铺贴","unit":"m2","price":50.0}],"木工班组":[{"id":"YQ-01","name":"地面基层-木地板龙骨及基层","unit":"m2","price":21.5}],"油漆班组":[{"id":"YQ-01","name":"墙面-艺术漆墙面","unit":"m2","price":43.7}]};
@@ -1665,6 +1668,14 @@ async function deleteProject(id) {
 
 // ═══════════ AI 知识库上传 ═══════════
 
+
+// ═══════════ 登出 ═══════════
+function doLogoutTool() {
+  localStorage.removeItem('sb-access-token');
+  localStorage.removeItem('sb-refresh-token');
+  localStorage.removeItem('sb-user');
+  window.location.href = 'index.html';
+}
 
 // ═══════════ BOOT ═══════════
 (async function() {
