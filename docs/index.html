@@ -383,7 +383,32 @@ function doLogout() {
 }
 
 async function checkApproval() {
-  // 尝试刷新 token
+  // 从 tool.html 跳过来时直接显示管理面板
+  const fromTool = new URLSearchParams(window.location.search).get('from') === 'tool';
+  if (fromTool && localStorage.getItem('sb-access-token')) {
+    // 尝试刷新 token
+    const rt = localStorage.getItem('sb-refresh-token');
+    if (rt) {
+      try {
+        const ac = new AbortController(); setTimeout(() => ac.abort(), 5000);
+        const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+          method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+          body:JSON.stringify({refresh_token:rt}), signal: ac.signal
+        });
+        if (r.ok) {
+          const d = await r.json();
+          SB._token = d.access_token;
+          localStorage.setItem('sb-access-token', d.access_token);
+          localStorage.setItem('sb-refresh-token', d.refresh_token);
+          localStorage.setItem('sb-user', JSON.stringify(d.user));
+        }
+      } catch(e) {}
+    }
+    document.getElementById('authBox').classList.add('hidden');
+    document.getElementById('adminPage').classList.remove('hidden');
+    loadPendingUsers(); loadAllUsers(); loadUnmatchedItems(); loadFeedbackSummary();
+    return;
+  }
   const rt = localStorage.getItem('sb-refresh-token');
   if (rt) {
     try {
