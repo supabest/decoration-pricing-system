@@ -394,6 +394,7 @@ async function checkApproval() {
       });
       if (r.ok) {
         const d = await r.json();
+        SB._token = d.access_token;
         localStorage.setItem('sb-access-token', d.access_token);
         localStorage.setItem('sb-refresh-token', d.refresh_token);
         localStorage.setItem('sb-user', JSON.stringify(d.user));
