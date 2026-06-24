@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>装修成本分析工具 v4.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f0f5fa;--bg2:#ffffff;--bg3:#f7fafd;--bg4:#eaf1f8;
+  --border:#c8d8e8;--bdr2:#a0bcce;
+  --acc:#1d6fa5;--acc2:#155d8e;--acc-d:rgba(29,111,165,.10);
+  --grn:#0b7b50;--grn-d:rgba(11,123,80,.10);
+  --yel:#b07000;--yel-d:rgba(176,112,0,.10);
+  --red:#b93232;--red-d:rgba(185,50,50,.10);
+  --tx:#1a2d3d;--tx2:#3a5470;--tx3:#6e8fa8;
+  --shadow:0 1px 5px rgba(20,50,80,.10);
+  --mono:'JetBrains Mono',monospace;--sans:'Noto Sans SC',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px;min-height:100vh;line-height:1.5}
+.hdr{background:var(--bg2);border-bottom:2px solid var(--border);height:52px;padding:0 22px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.hdr-brand{display:flex;align-items:center;gap:10px}
+.hdr-logo{width:30px;height:30px;background:var(--acc);border-radius:7px;display:flex;
+  align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;box-shadow:0 2px 6px rgba(29,111,165,.30)}
+.hdr-title{font-size:15px;font-weight:700;color:var(--tx)}.hdr-sub{font-size:11px;color:var(--tx3);margin-left:3px}
+.hdr-acts{display:flex;gap:8px;align-items:center}
+.layout{display:grid;grid-template-columns:272px 1fr;height:calc(100vh - 52px)}
+.sbar{background:var(--bg2);border-right:2px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sbar-hdr{padding:12px 14px 9px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3)}
+.sbar-title{font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.srch{position:relative}
+.srch input{width:100%;background:var(--bg2);border:1.5px solid var(--border);border-radius:7px;
+  padding:7px 10px 7px 29px;color:var(--tx);font-size:12px;font-family:var(--sans);outline:none;transition:border-color .15s}
+.srch input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(29,111,165,.12)}
+.srch input::placeholder{color:var(--tx3)}
+.srch-ic{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:11px;pointer-events:none}
+.ftabs{display:flex;gap:3px;margin-top:8px;flex-wrap:wrap}
+.ftab{padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg2);
+  color:var(--tx2);font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .12s;white-space:nowrap}
+.ftab:hover{border-color:var(--bdr2);color:var(--tx)}.ftab.on{background:var(--acc-d);border-color:var(--acc);color:var(--acc);font-weight:600}
+.lib-count{font-size:10px;color:var(--tx3);padding:5px 14px 3px;flex-shrink:0}
+.lib-list{flex:1;overflow-y:auto;padding:4px 6px 8px}
+.lib-list::-webkit-scrollbar{width:4px}.lib-list::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+.lib-item{padding:8px 10px;border-radius:7px;cursor:pointer;transition:all .12s;border:1.5px solid transparent;margin-bottom:3px;background:var(--bg3)}
+.lib-item:hover{background:var(--acc-d);border-color:var(--border)}.lib-item.lib-dragging{opacity:.4}
+.lib-id{font-family:var(--mono);font-size:10px;color:var(--acc);margin-bottom:2px;font-weight:600}
+.lib-name{font-size:12px;color:var(--tx);line-height:1.4;margin-bottom:3px}
+.lib-meta{display:flex;gap:8px;align-items:center}
+.lib-unit{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.lib-price{font-size:11px;color:var(--grn);font-family:var(--mono);font-weight:600}
+.lib-sheet-tag{font-size:10px;color:var(--tx3);background:var(--bg4);padding:0 5px;border-radius:3px}
+.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.ai-panel{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 18px;
+  display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.ai-key-wrap{display:flex;align-items:center;gap:6px;flex:1;min-width:200px}
+.ai-key-input{flex:1;background:var(--bg3);border:1.5px solid var(--border);border-radius:6px;
+  padding:6px 11px;color:var(--tx);font-size:12px;font-family:var(--mono);outline:none;transition:all .15s}
+.ai-key-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(29,111,165,.12)}
+.ai-key-input::placeholder{color:var(--tx3);font-family:var(--sans)}
+.btn-ai{background:linear-gradient(135deg,#2b5ea7,#1d6fa5);border:none;color:#fff;
+  font-size:12px;font-family:var(--sans);padding:7px 15px;border-radius:7px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;font-weight:600;transition:opacity .15s;
+  white-space:nowrap;box-shadow:0 2px 8px rgba(29,111,165,.25)}
+.btn-ai:hover{opacity:.88}.btn-ai:disabled{opacity:.45;cursor:not-allowed}
+.ai-prog-wrap{display:flex;flex-direction:column;gap:3px;min-width:160px}
+.ai-prog-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.ai-prog-fill{height:100%;background:linear-gradient(90deg,#2b5ea7,#1d6fa5);border-radius:3px;transition:width .3s;width:0%}
+.ai-prog-txt{font-size:10px;color:var(--tx3);display:flex;justify-content:space-between}
+.proj-bar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 18px;
+  display:flex;gap:14px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.pf{display:flex;align-items:center;gap:6px}.pl{font-size:11px;color:var(--tx2);white-space:nowrap;font-weight:500}
+.pi{background:var(--bg2);border:1.5px solid var(--border);border-radius:6px;padding:4px 9px;
+  color:var(--tx);font-size:12px;font-family:var(--sans);outline:none;transition:all .15s}
+.pi:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(29,111,165,.10)}
+.coef-badge{background:var(--yel-d);border:1.5px solid var(--yel);color:var(--yel);font-size:11px;
+  padding:3px 9px;border-radius:5px;font-family:var(--mono);cursor:pointer;font-weight:700;transition:opacity .15s}
+.coef-badge:hover{opacity:.8}
+.tbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 18px;
+  display:flex;align-items:center;gap:8px;flex-shrink:0}
+.tbar-l{flex:1;display:flex;gap:8px;align-items:center}.tbar-r{font-size:11px;color:var(--tx3)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;
+  border:1.5px solid var(--border);background:var(--bg2);color:var(--tx2);font-size:12px;
+  font-family:var(--sans);cursor:pointer;transition:all .12s;white-space:nowrap;box-shadow:var(--shadow)}
+.btn:hover{border-color:var(--bdr2);color:var(--tx);background:var(--bg4)}
+.btn-pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn-pri:hover{background:var(--acc2);border-color:var(--acc2);color:#fff}
+.btn-suc{background:var(--grn-d);border-color:var(--grn);color:var(--grn);font-weight:600}
+.btn-suc:hover{background:rgba(11,123,80,.18)}
+.btn-del{background:var(--red-d);border-color:var(--red);color:var(--red);padding:3px 8px;font-size:11px}
+.btn-del:hover{background:rgba(185,50,50,.18)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--tx3);box-shadow:none}
+.btn-ghost:hover{background:var(--bg4);border-color:var(--border);color:var(--tx2)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-danger-txt{background:transparent;border-color:transparent;color:var(--red);font-size:11px;padding:4px 10px;box-shadow:none}
+.btn-danger-txt:hover{background:var(--red-d);border-color:var(--red)}
+.boq-wrap{flex:1;overflow-y:auto;background:var(--bg)}
+.boq-wrap::-webkit-scrollbar{width:5px}.boq-wrap::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+.grp-row{background:linear-gradient(90deg,#d6e8f5,#e6f1f9);border-bottom:2px solid var(--bdr2);
+  display:flex;align-items:center;padding:8px 16px;gap:8px;cursor:pointer;user-select:none;
+  position:sticky;top:0;z-index:8;box-shadow:0 2px 5px rgba(20,50,80,.08)}
+.grp-row:hover{background:linear-gradient(90deg,#c8dff0,#daedf8)}
+.grp-arrow{font-size:11px;color:var(--acc);width:14px;transition:transform .15s;flex-shrink:0}
+.grp-arrow.closed{transform:rotate(-90deg)}
+.grp-name{font-size:13px;font-weight:700;color:var(--acc2)}.grp-meta{font-size:11px;color:var(--tx3);margin-left:2px}
+.grp-total{font-family:var(--mono);font-size:12px;color:var(--grn);font-weight:600;margin-left:auto}
+.sec-row{background:#edf4fb;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:6px 16px 6px 30px;gap:6px;cursor:pointer;user-select:none}
+.sec-row:hover{background:#e2eef8}
+.sec-arrow{font-size:10px;color:var(--tx2);width:12px;transition:transform .15s;flex-shrink:0}
+.sec-arrow.closed{transform:rotate(-90deg)}
+.sec-name{font-size:12px;font-weight:700;color:var(--tx2)}.sec-meta{font-size:10px;color:var(--tx3)}
+.sec-total{font-family:var(--mono);font-size:11px;color:var(--grn);margin-left:auto;font-weight:600}
+.boq-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.boq-table thead{position:sticky;top:38px;z-index:7;background:var(--bg3)}
+.boq-table th{padding:9px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--tx2);
+  text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);white-space:nowrap;background:var(--bg3)}
+.boq-table th.r,.boq-table td.r{text-align:right}.boq-table th.c,.boq-table td.c{text-align:center}
+.c-no{width:40px}.c-nm{min-width:140px}.c-sp{width:170px}
+.c-un{width:48px}.c-qty{width:80px}.c-pr{width:86px}.c-tot{width:98px}.c-re{width:100px}.c-ac{width:48px}
+.pr{border-bottom:1px solid var(--border);transition:background .08s;background:var(--bg2)}
+.pr:hover{background:var(--bg4)}.pr.drop-hi td{background:rgba(29,111,165,.08)!important}
+.pr td{padding:8px 10px;vertical-align:middle}
+.pr:nth-child(even){background:var(--bg3)}
+.rno{font-family:var(--mono);font-size:11px;color:var(--tx3);text-align:center}
+.rnm{display:flex;align-items:flex-start;gap:5px}
+.xbtn{background:none;border:1.5px solid var(--border);border-radius:4px;width:16px;height:16px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tx3);
+  font-size:10px;flex-shrink:0;margin-top:2px;transition:all .12s}
+.xbtn:hover{border-color:var(--bdr2);color:var(--tx)}.xbtn.open{border-color:var(--acc);color:var(--acc);background:var(--acc-d)}
+.ri{background:transparent;border:none;border-bottom:1.5px solid transparent;
+  color:var(--tx);font-size:13px;font-family:var(--sans);outline:none;width:100%;padding:1px 0;transition:border-color .15s}
+.ri:focus{border-bottom-color:var(--acc)}.ri-sm{font-size:11px;color:var(--tx2)}.ri-c{text-align:center;font-family:var(--mono)}
+.qty-i{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:5px;
+  padding:4px 6px;color:var(--tx);font-size:12px;font-family:var(--mono);text-align:right;outline:none;transition:all .15s}
+.qty-i:focus{border-color:var(--acc);box-shadow:0 0 0 2px rgba(29,111,165,.12)}
+.r-price{font-family:var(--mono);font-size:12px;color:var(--tx2);text-align:right}
+.r-total{font-family:var(--mono);font-size:12px;color:var(--tx);font-weight:700;text-align:right}
+.sub-badge{display:inline-flex;align-items:center;gap:3px;background:var(--acc-d);
+  color:var(--acc);font-size:10px;padding:1px 7px;border-radius:4px;font-family:var(--mono);font-weight:600;border:1px solid rgba(29,111,165,.25)}
+.nosub{font-size:11px;color:var(--tx3);font-style:italic}
+.conf-hi{padding:1px 6px;border-radius:4px;font-size:10px;font-family:var(--mono);background:var(--grn-d);color:var(--grn);border:1px solid var(--grn)}
+.conf-mid{padding:1px 6px;border-radius:4px;font-size:10px;font-family:var(--mono);background:var(--yel-d);color:var(--yel);border:1px solid var(--yel)}
+.conf-lo{padding:1px 6px;border-radius:4px;font-size:10px;font-family:var(--mono);background:var(--red-d);color:var(--red);border:1px solid var(--red)}
+.sub-wrap-td{padding:0!important;background:var(--bg4);border-bottom:2px solid var(--border)}
+.sub-inner{width:100%;border-collapse:collapse}
+.sub-th{background:var(--bg4)}
+.sub-th th{padding:5px 10px 5px 32px;font-size:10px;color:var(--tx2);
+  border-bottom:1px solid var(--border);font-weight:700;background:var(--bg4)}
+.sub-r{border-bottom:1px solid var(--border);background:var(--bg3);transition:background .08s}
+.sub-r:hover{background:var(--bg4)}.sub-r td{padding:6px 10px;vertical-align:middle}
+.sub-r td:first-child{padding-left:32px}
+.sid{font-family:var(--mono);font-size:10px;color:var(--acc);font-weight:700}
+.snm{font-size:12px;color:var(--tx);line-height:1.3}
+.ssp{font-size:10px;color:var(--tx2);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.srk{font-size:10px;color:var(--yel);margin-top:2px}
+.cof-i{width:54px;background:var(--bg2);border:1.5px solid var(--border);border-radius:5px;
+  padding:3px 5px;color:var(--yel);font-size:11px;font-family:var(--mono);text-align:center;outline:none;transition:all .15s;font-weight:600}
+.cof-i:focus{border-color:var(--yel);box-shadow:0 0 0 2px var(--yel-d)}
+.cof-lbl{font-size:9px;color:var(--tx3);text-align:center;margin-top:1px}
+.s-unit{font-family:var(--mono);font-size:11px;color:var(--tx3);text-align:center}
+.s-base{font-family:var(--mono);font-size:11px;color:var(--grn);text-align:right;font-weight:600}
+.s-eff{font-family:var(--mono);font-size:12px;color:var(--acc);text-align:right;font-weight:700}
+.sub-sum-tr td{background:var(--bg4);padding:6px 10px 6px 32px;border-top:1px solid var(--bdr2)}
+.sub-sum-val{font-family:var(--mono);font-size:13px;color:var(--acc2);font-weight:700;text-align:right}
+.addsub-tr td{padding:7px 14px 9px 32px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.addsub-btn{background:none;border:1.5px dashed var(--bdr2);border-radius:5px;color:var(--tx3);
+  padding:4px 12px;font-size:11px;cursor:pointer;font-family:var(--sans);
+  transition:all .12s;display:inline-flex;align-items:center;gap:4px}
+.addsub-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-d)}
+.upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:16px;cursor:pointer;padding:40px;transition:background .15s}
+.upload-area.dov{background:var(--acc-d)}.uic{font-size:52px;opacity:.25}
+.utitle{font-size:17px;font-weight:700;color:var(--tx2)}.usub{font-size:12px;color:var(--tx3);text-align:center;line-height:1.8}
+.sbar2{background:var(--bg2);border-top:2px solid var(--border);padding:10px 22px;
+  display:flex;gap:24px;align-items:center;flex-shrink:0;box-shadow:0 -2px 6px rgba(20,50,80,.06)}
+.si{display:flex;align-items:baseline;gap:6px}.sl{font-size:11px;color:var(--tx3);font-weight:500}
+.sv{font-family:var(--mono);font-size:15px;color:var(--acc);font-weight:700}
+.si-big .sv{font-size:19px;color:var(--grn)}.ssep{color:var(--border);font-size:16px}
+.modal-ov{position:fixed;inset:0;background:rgba(20,40,60,.40);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+.modal{background:var(--bg2);border:2px solid var(--border);border-radius:12px;
+  display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(20,50,80,.15)}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-ttl{font-size:14px;font-weight:700;color:var(--tx)}
+.modal-x{background:none;border:none;color:var(--tx3);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;transition:color .12s}
+.modal-x:hover{color:var(--tx)}
+.modal-srch{padding:11px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-srch input{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:7px;
+  padding:8px 13px;color:var(--tx);font-size:13px;font-family:var(--sans);outline:none;transition:all .15s}
+.modal-srch input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(29,111,165,.12)}
+.modal-list{overflow-y:auto;padding:6px}.modal-list::-webkit-scrollbar{width:4px}
+.modal-list::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+.mitem{padding:10px 13px;border-radius:7px;cursor:pointer;transition:all .1s;border:1.5px solid transparent;margin-bottom:3px}
+.mitem:hover{background:var(--bg4);border-color:var(--border)}
+.mitem-hd{display:flex;gap:8px;align-items:baseline;margin-bottom:3px}
+.mitem-id{font-family:var(--mono);font-size:10px;color:var(--acc);font-weight:700}
+.mitem-sh{font-size:10px;color:var(--tx3);background:var(--bg4);padding:0 5px;border-radius:3px}
+.mitem-nm{font-size:13px;color:var(--tx)}
+.mitem-ft{display:flex;gap:10px;margin-top:4px}
+.mitem-un{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.mitem-pr{font-size:12px;color:var(--grn);font-family:var(--mono);font-weight:600}
+.coef-opt{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.coef-opt-lbl{flex:1;font-size:12px;color:var(--tx)}.coef-opt-range{font-family:var(--mono);font-size:11px;color:var(--tx3)}
+.toast{position:fixed;bottom:22px;right:22px;background:var(--tx);border:1px solid var(--bdr2);
+  border-radius:8px;padding:10px 18px;font-size:12px;color:#fff;z-index:400;
+  box-shadow:0 4px 20px rgba(20,50,80,.18);animation:tin .2s ease;pointer-events:none}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hist-item{padding:10px 14px;border-radius:7px;border:1.5px solid var(--border);
+  margin-bottom:6px;background:var(--bg2);transition:all .12s}
+.hist-item:hover{border-color:var(--bdr2);background:var(--bg4)}
+.hist-item-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.hist-item-name{font-size:13px;font-weight:600;color:var(--tx);flex:1}
+.hist-item-date{font-size:10px;color:var(--tx3);font-family:var(--mono)}
+.hist-item-meta{font-size:11px;color:var(--tx2)}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-logo">套</div>
+    <span class="hdr-title">装修成本分析工具</span>
+    <span class="hdr-sub">v4.0</span>
+  </div>
+  <div class="hdr-acts">
+    <button class="btn btn-sm" onclick="importBoq()">📂 导入清单</button>
+    <button class="btn btn-sm" onclick="addBoqRow()">＋ 新增清单行</button>
+    <button class="btn-ai" id="aiBtn" onclick="startAiPricing()">✨ AI 一键套价</button>
+    <button class="btn btn-suc btn-sm" onclick="exportResult()">⬇ 导出套价表</button>
+    <button class="btn btn-sm" onclick="document.getElementById('benchFileIn').click()" title="重新上传企业基准价.xlsx 以更新库数据">🔄 更新基准价库</button><button class="btn btn-sm" onclick="document.getElementById("knowledgeFileIn").click()" title="上传套价技巧/同义词知识库">🧠 知识库</button>
+    <button class="btn btn-sm" onclick="openBenchNote()" title="查看基准价编制说明">📋 基准价说明</button>
+    <button class="btn btn-sm" onclick="openFeedback()" style="color:var(--acc);border-color:var(--acc)" title="反馈套价问题，帮助持续改进工具">💡 意见反馈</button>
+  </div>
+</div>
+<div class="layout">
+  <div class="sbar">
+    <div class="sbar-hdr">
+      <div class="sbar-title">基准价库</div>
+      <div class="srch"><span class="srch-ic">🔍</span>
+        <input id="libSrch" type="text" placeholder="搜索子目名称、编号…" oninput="renderLib()">
+      </div>
+      <div class="ftabs" id="ftabs">
+        <button class="ftab on" data-sh="all" onclick="setSheet('all',this)">全部</button>
+      </div>
+    </div>
+    <div class="lib-count" id="libCnt"></div>
+    <div class="lib-list" id="libList"></div>
+  </div>
+  <div class="main">
+    <div class="ai-panel">
+      <span style="font-size:11px;color:var(--tx3);white-space:nowrap">🔑 DeepSeek Key</span>
+      <div class="ai-key-wrap">
+        <input class="ai-key-input" id="aiKey" type="password" placeholder="sk-xxxxxxxx（仅本次使用，不保存）">
+        <button class="btn btn-sm" onclick="toggleKeyVis()" id="keyVisBtn">👁</button>
+      </div>
+      <button class="btn btn-sm" onclick="testApi()" style="color:var(--acc2);border-color:var(--acc)">🔌 测试</button>
+      <div class="ai-prog-wrap hidden" id="aiProgWrap">
+        <div class="ai-prog-txt"><span id="aiProgLbl">准备中…</span><span id="aiProgCnt"></span></div>
+        <div class="ai-prog-bar"><div class="ai-prog-fill" id="aiProgFill"></div></div>
+      </div>
+      <button class="btn btn-sm hidden" id="aiStopBtn" style="color:var(--red);border-color:var(--red)" onclick="stopAi()">⏹ 停止</button>
+    </div>
+    <div class="proj-bar">
+      <div class="pf"><span class="pl">项目名称</span><input class="pi" id="projName" type="text" placeholder="请输入项目名称" style="min-width:180px"></div>
+      <div class="pf"><span class="pl">班组类型</span><input class="pi" id="projTeam" type="text" placeholder="如：泥水班组" style="min-width:100px"></div>
+      <div class="pf"><span class="pl">类型系数</span><span class="coef-badge" id="coefBadge" onclick="openCoefModal()">×1.00</span></div>
+      <div class="pf"><span class="pl">日期</span><input class="pi" id="projDate" type="text" placeholder="2026-06" style="min-width:72px"></div>
+      <div class="pf"><span class="pl">时工单价</span>
+        <input class="pi" id="hourlyRateInput" type="number" min="0" step="10" value="350"
+          style="width:64px" title="无法套用基准价定额的零星工程，按此单价×工日数计算"
+          oninput="updateHourlyRate(this.value)">
+        <span style="font-size:11px;color:var(--tx3)">元/工日</span>
+      </div>
+    </div>
+    <div class="tbar">
+      <div class="tbar-l">
+        <span style="font-size:11px;color:var(--tx3)">共 <span id="rowCnt" style="color:var(--tx2)">0</span> 条</span>
+        <button class="btn btn-danger-txt btn-sm" onclick="clearAll()">🗑 清空</button>
+        <button class="btn btn-ghost btn-sm" onclick="setAllOpen(true,true)">全展开</button>
+        <button class="btn btn-ghost btn-sm" onclick="setAllOpen(false,false)">全折叠</button>
+        <button class="btn btn-sm" onclick="saveProject()" style="color:var(--grn);border-color:var(--grn)">💾 保存方案</button>
+        <button class="btn btn-ghost btn-sm" onclick="openHistory()">📂 历史方案</button>
+      </div>
+      <div class="tbar-r">展开清单行后可从左侧<b style="color:var(--tx2)">拖拽</b>子目 或 点击<b style="color:var(--tx2)">「+ 挂子目」</b></div>
+    </div>
+    <div class="boq-wrap" id="boqWrap">
+      <div class="upload-area" id="uploadArea"
+        ondragover="uDragover(event)" ondrop="uDrop(event)" ondragleave="uDragleave(event)" onclick="importBoq()">
+        <div class="uic">📋</div>
+        <div class="utitle">上传工程量清单</div>
+        <div class="usub">点击选择 Excel（.xlsx/.xls）或拖放到此处<br>
+          自动识别多工作簿、楼地面/天棚/墙面等分部标题<br>
+          支持列：项目名称 · 项目特征 · 单位 · 工程量</div>
+      </div>
+      <div id="boqMain" class="hidden"></div>
+    </div>
+    <div class="sbar2">
+      <div class="si"><span class="sl">清单行</span><span class="sv" id="s-rows">0</span></div>
+      <div class="ssep">|</div>
+      <div class="si"><span class="sl">已套价</span><span class="sv" id="s-priced">0</span></div>
+      <div class="ssep">|</div>
+      <div class="si"><span class="sl">子目数</span><span class="sv" id="s-subs">0</span></div>
+      <div class="ssep">|</div>
+      <div class="si si-big"><span class="sl">人工费合计</span><span class="sv" id="s-total">¥ 0.00</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-ov hidden" id="pickerMod">
+  <div class="modal" style="width:560px;max-height:78vh">
+    <div class="modal-hdr"><span class="modal-ttl">挂子目 — 选择基准价子目</span><button class="modal-x" onclick="closePicker()">×</button></div>
+    <div class="modal-srch"><input id="pkSrch" type="text" placeholder="搜索子目名称、编号…" oninput="renderPicker()"></div>
+    <div class="modal-list" id="pkList" style="max-height:calc(78vh - 110px)"></div>
+  </div>
+</div>
+<div class="modal-ov hidden" id="coefMod">
+  <div class="modal" style="width:420px">
+    <div class="modal-hdr"><span class="modal-ttl">装修类型系数（第25条）</span><button class="modal-x" onclick="closeCoefModal()">×</button></div>
+    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:11px;color:var(--tx3);line-height:1.7">以人工费为基数乘以浮动率：</div>
+      <div id="coefOpts"></div>
+      <div style="display:flex;align-items:center;gap:8px;padding-top:6px">
+        <span style="font-size:12px;color:var(--tx3)">自定义系数：</span>
+        <input type="number" id="customCoef" step="0.01" min="0.5" max="3"
+          style="width:80px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;
+          padding:4px 8px;color:var(--tx);font-family:var(--mono);font-size:13px;outline:none"
+          oninput="pendCoef=parseFloat(this.value)||1">
+      </div>
+      <button class="btn btn-pri" onclick="applyCoef()">确认应用</button>
+    </div>
+  </div>
+</div>
+<!-- 意见反馈 Modal -->
+<div class="modal-ov hidden" id="feedbackMod">
+  <div class="modal" style="width:520px;max-height:80vh">
+    <div class="modal-hdr">
+      <span class="modal-ttl">💡 意见反馈</span>
+      <button class="modal-x" onclick="closeFeedback()">×</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11px;color:var(--tx3);line-height:1.7">
+        反馈将保存在本地浏览器，可随时导出汇总发给维护人员，用于持续改进基准价库和套价规则。
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:5px;font-weight:600">问题类型</div>
+        <select id="fbType" class="pi" style="width:100%;padding:6px 9px">
+          <option value="价格不准">基准价价格不准确</option>
+          <option value="缺少子目">缺少需要的子目</option>
+          <option value="AI匹配错误">AI自动套价匹配错误</option>
+          <option value="规则建议">套价规则建议（如默认值、系数等）</option>
+          <option value="软件bug">软件功能问题/bug</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:5px;font-weight:600">相关清单项目 / 子目编号（选填）</div>
+        <input id="fbRef" class="pi" style="width:100%;padding:6px 9px" placeholder="如：NS-017 或 石材门槛石">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:5px;font-weight:600">详细描述</div>
+        <textarea id="fbDesc" rows="4" style="width:100%;background:var(--bg3);border:1.5px solid var(--border);
+          border-radius:6px;padding:8px 10px;color:var(--tx);font-size:12px;font-family:var(--sans);outline:none;resize:vertical"
+          placeholder="请描述具体问题，例如：NS-017石材门槛石的单价偏低，市场价应该在150元左右"></textarea>
+      </div>
+      <button class="btn btn-pri" onclick="submitFeedback()">提交反馈</button>
+      <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--tx3)">已积累 <b id="fbCount" style="color:var(--acc)">0</b> 条反馈</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="exportFeedback()">⬇ 导出反馈记录</button>
+          <button class="btn btn-sm btn-danger-txt" onclick="clearFeedback()">清空</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 基准价说明 Modal -->
+<div class="modal-ov hidden" id="benchNoteMod">
+  <div class="modal" style="width:640px;max-height:80vh">
+    <div class="modal-hdr">
+      <span class="modal-ttl">📋 企业基准价编制说明（2025年版）</span>
+      <button class="modal-x" onclick="closeBenchNote()">×</button>
+    </div>
+    <div id="benchNoteBody" style="overflow-y:auto;padding:18px 22px;max-height:calc(80vh - 60px);font-size:12px;line-height:1.9;color:var(--tx2)"></div>
+  </div>
+</div>
+
+<!-- 历史方案 Modal -->
+<div class="modal-ov hidden" id="histMod">
+  <div class="modal" style="width:520px;max-height:75vh">
+    <div class="modal-hdr">
+      <span class="modal-ttl">📂 历史套价方案</span>
+      <button class="modal-x" onclick="closeHistory()">×</button>
+    </div>
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+      <span style="font-size:11px;color:var(--tx3)">保存在本地浏览器，最多保留20个方案</span>
+      <button class="btn btn-sm btn-danger-txt" onclick="clearAllHistory()" style="margin-left:auto">🗑 清空全部</button>
+    </div>
+    <div id="histList" style="overflow-y:auto;flex:1;padding:8px;max-height:calc(75vh - 110px)"></div>
+  </div>
+</div>
+
+<input type="file" id="fileIn" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
+<input type="file" id="benchFileIn" accept=".xlsx,.xls" style="display:none" onchange="handleBenchFile(event)">
+<input type="file" id="knowledgeFileIn" accept=".xlsx,.xls" style="display:none" onchange="handleKnowledgeFile(event)">
+
+<script>
+// ═══════════ SUPABASE ═══════════
+const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
+const _h = ()=>{const h={'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY};const t=localStorage.getItem('sb-access-token');if(t)h['Authorization']='Bearer '+t;return h};
+const _get=async(t,p)=>{try{const q=new URLSearchParams();q.set('select',p?.select||'*');if(p?.eq)q.set(p.eq.col,'eq.'+encodeURIComponent(p.eq.val));if(p?.order)q.set('order',p.order.col+(p.order.asc?'.asc':'.desc'));if(p?.limit)q.set('limit',''+p.limit);const c=new AbortController();const tm=setTimeout(()=>c.abort(),10000);const r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+q,{headers:_h(),signal:c.signal});clearTimeout(tm);if(!r.ok){const t=await r.text();if(t.includes('JWT expired')){localStorage.removeItem('sb-access-token');localStorage.removeItem('sb-refresh-token');window.location.href='index.html'}return[]}return await r.json()}catch(e){clearTimeout(tm);return[]}};
+const _post=async(t,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t,{method:'POST',headers:h,body:JSON.stringify(b)})};
+const _patch=async(t,id,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify(b)})};
+const _del=async(t,id)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'DELETE',headers:h})};
+const CURRENT_USER = JSON.parse(localStorage.getItem('sb-user')||'null');
+let AI_KNOWLEDGE = {tips:[],synonyms:[],rules:[]};
+// ═══════════ BENCHMARK DATA ═══════════
+let DB_EMBEDDED = {"泥水班组":[{"id":"NS-01","name":"地面-水泥砂浆找平","unit":"m2","price":20.0},{"id":"NS-08","name":"地面铺设-瓷砖地面铺贴","unit":"m2","price":50.0}],"木工班组":[{"id":"YQ-01","name":"地面基层-木地板龙骨及基层","unit":"m2","price":21.5}],"油漆班组":[{"id":"YQ-01","name":"墙面-艺术漆墙面","unit":"m2","price":43.7}]};
+
+function rebuildAll() {
+  ALL = [];
+  Object.keys(DB_EMBEDDED).forEach(sh => DB_EMBEDDED[sh].forEach(it => ALL.push({...it, sheet:sh})));
+}
+rebuildAll();
+let SHEETS = Object.keys(DB_EMBEDDED);
+
+async function loadFromSupabase() {
+  const items = await _get('benchmark_items', {order:{col:'trade_team',asc:true}}).catch(()=>[]);
+  if (items && items.length > 0) {
+    DB = {};
+    items.forEach(it => {
+      if (!DB[it.trade_team]) DB[it.trade_team] = [];
+      DB[it.trade_team].push({id:it.internal_code, trade:it.work_type||'', name:it.item_name, spec:it.spec||'', unit:it.unit, price:parseFloat(it.unit_price), remark:it.remark||''});
+    });
+    ALL = [];
+    Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
+    SHEETS = Object.keys(DB);
+    return true;
+  }
+  return false;
+}
+
+// ═══════════ STATE ═══════════
+// groups[]: {id, sheetName, open, sections[]: {id, name, open, rows[]: ROW}}
+// ROW: {id, name, spec, unit, qty, remark, open, subs[], aiNote}
+let groups = [];
+let uid = 1;
+let shFilter = 'all';
+let globalCoef = 1.0, pendCoef = 1.0;
+let hourlyRate = 350;  // 时工单价（元/工日），可调整
+let drag = null;
+let pickerRowId = null;
+let aiRunning = false, aiStop = false;
+
+function updateHourlyRate(val) {
+  const v = parseFloat(val);
+  hourlyRate = (!isNaN(v) && v >= 0) ? v : 350;
+  renderBoq();
+}
+
+// 标记/取消清单行为「时工计算」模式：单价 = hourlyRate，合价 = 工程量(工日数) × hourlyRate
+function toggleHourlyMode(rid) {
+  const r = findRow(rid);
+  if (!r) return;
+  r.hourlyMode = !r.hourlyMode;
+  if (r.hourlyMode && r.subs.length) {
+    if (!confirm('切换为时工计算模式将忽略已挂载的子目（不删除，仅不参与计价），是否继续？')) {
+      r.hourlyMode = false; return;
+    }
+  }
+  renderBoq();
+}
+
+// ═══════════ INIT ═══════════
+function init() {
+  (async () => {
+    document.getElementById('libCnt').textContent = '⏳ 连接Supabase中...'; await new Promise(r=>setTimeout(r,100));
+    const hasSb = await loadFromSupabase();
+    if (!hasSb) {
+      document.getElementById('libCnt').textContent = '⚠️ Supabase不可用，使用内置数据';
+      DB = JSON.parse(JSON.stringify(DB_EMBEDDED));
+      ALL = [];
+      Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
+      SHEETS = Object.keys(DB);
+    }
+    if (!hasSb) {
+      // 无云端数据，使用嵌入数据
+      DB = JSON.parse(JSON.stringify(DB_EMBEDDED));
+      ALL = [];
+      Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
+      SHEETS = Object.keys(DB);
+    }
+    // 构建侧栏
+    const tabs = document.getElementById('ftabs');
+    SHEETS.forEach(sh => {
+      const b = document.createElement('button');
+      b.className = 'ftab'; b.dataset.sh = sh;
+      b.textContent = sh.replace('班组','').replace('工程','').replace('（现场专业分包）','');
+      b.onclick = () => setSheet(sh, b);
+      tabs.appendChild(b);
+    });
+    buildCoefOpts();
+    renderLib();
+  })();
+}
+
+// ═══════════ SIDEBAR ═══════════
+function setSheet(sh, el) {
+  shFilter = sh;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderLib();
+}
+function getLibItems() {
+  let items = shFilter === 'all' ? ALL : ALL.filter(i => i.sheet === shFilter);
+  const q = document.getElementById('libSrch').value.trim().toLowerCase();
+  if (q) items = items.filter(i => i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q) || i.trade.includes(q));
+  return items;
+}
+function renderLib() {
+  const items = getLibItems();
+  document.getElementById('libCnt').textContent = '共 ' + items.length + ' 条子目';
+  const el = document.getElementById('libList');
+  if (!items.length) { el.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3)">未找到</div>'; return; }
+  el.innerHTML = items.slice(0,250).map(it =>
+    '<div class="lib-item" draggable="true"' +
+    ' ondragstart="onDragStart(event,\''+esc(it.id)+'\',\''+esc(it.sheet)+'\')' +
+    '" ondragend="onDragEnd()" onclick="libClick(\''+esc(it.id)+'\',\''+esc(it.sheet)+'\')">' +
+    '<div class="lib-id">'+esc(it.id)+'</div>' +
+    '<div class="lib-name">'+esc(it.name)+'</div>' +
+    '<div class="lib-meta"><span class="lib-unit">'+esc(it.unit)+'</span>' +
+    '<span class="lib-price">¥'+it.price.toFixed(2)+'</span>' +
+    '<span class="lib-sheet-tag">'+esc(it.sheet)+'</span></div></div>'
+  ).join('') + (items.length>250 ? '<div style="padding:6px 10px;font-size:11px;color:var(--tx3)">…还有'+(items.length-250)+'条</div>' : '');
+}
+function libClick(id, sh) {
+  const exp = getAllRows().filter(r => r.open);
+  if (exp.length === 1) { addSub(exp[0].id, id, sh); return; }
+  if (exp.length > 1) { toast('请先只展开一行，再点击子目'); return; }
+  toast('请先展开一条清单行，再点击子目');
+}
+
+// ═══════════ DRAG ═══════════
+function onDragStart(e, id, sh) { drag={id,sh}; e.dataTransfer.effectAllowed='copy'; }
+function onDragEnd() {
+  drag=null;
+  document.querySelectorAll('.drop-hi').forEach(el => el.classList.remove('drop-hi'));
+}
+function onRowDragover(e, rid) {
+  if (!drag) return; e.preventDefault();
+  document.querySelectorAll('.pr').forEach(tr => tr.classList.toggle('drop-hi', tr.dataset.rid==rid));
+}
+function onRowDrop(e, rid) { e.preventDefault(); if(drag){addSub(rid,drag.id,drag.sh);onDragEnd();} }
+
+// ═══════════ HELPERS ═══════════
+function getAllRows() {
+  const rows=[];
+  groups.forEach(g=>g.sections.forEach(s=>s.rows.forEach(r=>rows.push(r))));
+  return rows;
+}
+function findRow(rid) {
+  for(const g of groups) for(const s of g.sections) for(const r of s.rows) if(r.id===rid) return r;
+  return null;
+}
+function makeRow(d={}) {
+  return {id:uid++,name:d.name||'',spec:d.spec||'',unit:d.unit||'',
+    qty:d.qty||'',remark:d.remark||'',open:false,subs:[],aiNote:null,hourlyMode:false};
+}
+
+// ═══════════ GROUP/SECTION/ROW OPS ═══════════
+function toggleGroup(gid) { const g=groups.find(g=>g.id===gid); if(g){g.open=!g.open;renderBoq();} }
+function toggleSection(gid,sid) {
+  const g=groups.find(g=>g.id===gid); if(!g) return;
+  const s=g.sections.find(s=>s.id===sid); if(s){s.open=!s.open;renderBoq();}
+}
+function toggleRow(rid) { const r=findRow(rid); if(r){r.open=!r.open;renderBoq();} }
+function setAllOpen(grpOpen, rowOpen) {
+  groups.forEach(g=>{g.open=true;g.sections.forEach(s=>{s.open=true;s.rows.forEach(r=>r.open=rowOpen);});});
+  renderBoq();
+}
+function addBoqRow(data={}) {
+  if (!groups.length) groups.push({id:uid++,sheetName:'手动录入',open:true,sections:[{id:uid++,name:'未分类',open:true,rows:[]}]});
+  groups[groups.length-1].sections[groups[groups.length-1].sections.length-1].rows.push(makeRow(data));
+  showBoq(); renderBoq();
+}
+function delRow(rid) {
+  groups.forEach(g=>g.sections.forEach(s=>{s.rows=s.rows.filter(r=>r.id!==rid);}));
+  groups.forEach(g=>{g.sections=g.sections.filter(s=>s.rows.length>0);});
+  groups=groups.filter(g=>g.sections.length>0);
+  if(!getAllRows().length) showUpload();
+  renderBoq();
+}
+function updField(rid,fld,val) { const r=findRow(rid); if(r){r[fld]=val;updateSum();} }
+function addSub(rid,bid,bsh) {
+  const r=findRow(rid); if(!r) return;
+  if(r.subs.find(s=>s.bid===bid&&s.bsh===bsh)){toast('该子目已添加');return;}
+  r.subs.push({bid,bsh,coef:1.0,conv:1.0});
+  r.open=true; renderBoq();
+  const it=getBench(bid,bsh);
+  const ru=(r.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
+  const bu=it?(it.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim():'';
+  if(it&&ru&&bu&&ru!==bu) toast('⚠️ 单位不一致：清单'+r.unit+' / 定额'+it.unit+'，请设置换算系数');
+  else toast('✓ 子目已挂载');
+}
+function delSub(rid,bid,bsh) { const r=findRow(rid); if(r){r.subs=r.subs.filter(s=>!(s.bid===bid&&s.bsh===bsh));renderBoq();} }
+function updCoef(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find(s=>s.bid===bid&&s.bsh===bsh); if(s){s.coef=parseFloat(val)||1.0;updateSum();} }
+function updConv(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find(s=>s.bid===bid&&s.bsh===bsh); if(s){s.conv=parseFloat(val)||1.0;updateSum();} }
+
+// ═══════════ PRICING ═══════════
+function getBench(id,sh) { return DB[sh]?.find(i=>i.id===id); }
+function effPrice(sub) {
+  const it=getBench(sub.bid,sub.bsh);
+  return it ? it.price*sub.coef*globalCoef*(sub.conv||1.0) : 0;
+}
+function rowUnitPrice(r) {
+  if (r.hourlyMode) return hourlyRate;   // 时工模式：单价固定为时工单价
+  if (!r.subs.length) return null;
+  return r.subs.reduce((s,sub)=>s+effPrice(sub),0);
+}
+function rowTotal(r) { const p=rowUnitPrice(r),q=parseFloat(r.qty); return (p!==null&&!isNaN(q))?p*q:null; }
+function fmt(v,dec=2) { return (v===null||v===undefined)?'—':v.toLocaleString('zh-CN',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function secTotal(s) { return s.rows.reduce((a,r)=>a+(rowTotal(r)||0),0); }
+function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
+
+// ═══════════ RENDER ═══════════
+function renderBoq() {
+  const main = document.getElementById('boqMain');
+  if (!groups.length) { updateSum(); return; }
+  let html = '';
+  let globalIdx = 0;
+
+  groups.forEach(g => {
+    const gt = grpTotal(g), totalRows = g.sections.reduce((a,s)=>a+s.rows.length,0);
+    html += '<div class="grp-row" onclick="toggleGroup('+g.id+')">' +
+      '<span class="grp-arrow'+(g.open?'':' closed')+'">▾</span>' +
+      '<span class="grp-name">'+esc(g.sheetName)+'</span>' +
+      '<span class="grp-meta">'+totalRows+' 条</span>' +
+      '<span class="grp-total">'+fmt(gt)+'</span></div>';
+    if (!g.open) return;
+
+    html += '<table class="boq-table"><thead><tr>' +
+      '<th class="c-no c">序号</th><th class="c-nm">项目名称</th><th class="c-sp">项目特征</th>' +
+      '<th class="c-un c">单位</th><th class="c-qty r">工程量</th>' +
+      '<th class="c-pr r">人工单价</th><th class="c-tot r">人工合价</th>' +
+      '<th class="c-re">备注</th><th class="c-ac c">操作</th></tr></thead><tbody>';
+
+    g.sections.forEach(s => {
+      const st = secTotal(s);
+      html += '<tr><td colspan="9" style="padding:0">' +
+        '<div class="sec-row" onclick="toggleSection('+g.id+','+s.id+')">' +
+        '<span class="sec-arrow'+(s.open?'':' closed')+'">▾</span>' +
+        '<span class="sec-name">'+esc(s.name)+'</span>' +
+        '<span class="sec-meta"> '+s.rows.length+' 条</span>' +
+        '<span class="sec-total">'+fmt(st)+'</span></div></td></tr>';
+      if (!s.open) return;
+
+      s.rows.forEach(r => {
+        globalIdx++;
+        const up=rowUnitPrice(r), tot=rowTotal(r);
+        // AI badge
+        let aiBadge = '';
+        if (r.aiNote) {
+          const n=r.aiNote;
+          const cls=n.status==='hi'?'conf-hi':n.status==='mid'?'conf-mid':'conf-lo';
+          const icon=n.status==='hi'?'✨':n.status==='mid'?'⚠️':'🔴';
+          const lbl=n.status==='hi'?'AI高置信':n.status==='mid'?'AI需复核':'AI低置信';
+          aiBadge=' <span class="'+cls+'">'+icon+' '+lbl+' '+n.conf+'%</span>' +
+            (n.note?'<span style="font-size:10px;color:var(--tx3);margin-left:4px">'+esc(n.note.substring(0,40))+'</span>':'');
+        }
+        html += '<tr class="pr" data-rid="'+r.id+'"' +
+          ' ondragover="onRowDragover(event,'+r.id+')"' +
+          ' ondragleave="document.querySelectorAll(\'.drop-hi\').forEach(e=>e.classList.remove(\'drop-hi\'))"' +
+          ' ondrop="onRowDrop(event,'+r.id+')">' +
+          '<td class="rno c">'+globalIdx+'</td>' +
+          '<td><div class="rnm">' +
+            '<button class="xbtn'+(r.open?' open':'')+'" onclick="toggleRow('+r.id+')">'+(r.open?'▾':'▸')+'</button>' +
+            '<div style="flex:1;min-width:0">' +
+              '<input class="ri" value="'+esc(r.name)+'" placeholder="项目名称" onchange="updField('+r.id+',\'name\',this.value)">' +
+              '<div style="margin-top:3px">' +
+                (r.hourlyMode
+                  ? '<span class="sub-badge" style="background:var(--yel-d);color:var(--yel);border-color:var(--yel)">⏱ 时工计算 ¥'+hourlyRate.toFixed(0)+'/工日</span>'
+                  : (r.subs.length?'<span class="sub-badge">📌 '+r.subs.length+' 个子目</span>':'<span class="nosub">← 拖入或挂子目</span>')) +
+                ' <button class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:10px" onclick="toggleHourlyMode('+r.id+')" title="无法套定额的零星工程，按时工日工资计算">'+(r.hourlyMode?'✕ 取消时工':'⏱ 按时工计算')+'</button>' +
+                aiBadge +
+              '</div></div></div></td>' +
+          '<td><input class="ri ri-sm" value="'+esc(r.spec)+'" placeholder="项目特征" onchange="updField('+r.id+',\'spec\',this.value)"></td>' +
+          '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
+          '<td class="r"><input class="qty-i" type="number" min="0" step="any" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
+          '<td class="r-price r">'+fmt(up)+'</td><td class="r-total r">'+fmt(tot)+'</td>' +
+          '<td><input class="ri ri-sm" value="'+esc(r.remark)+'" placeholder="备注" onchange="updField('+r.id+',\'remark\',this.value)"></td>' +
+          '<td class="c"><button class="btn btn-del" onclick="delRow('+r.id+')">✕</button></td>' +
+          '</tr>';
+
+        if (r.open) {
+          html += '<tr><td colspan="9" class="sub-wrap-td"><table class="sub-inner">';
+          if (r.subs.length) {
+            html += '<tr class="sub-th"><th style="width:80px">编号</th><th>子目名称</th>' +
+              '<th style="width:110px">班组</th><th style="width:60px" class="c">定额单位</th>' +
+              '<th style="width:70px" class="c">子目系数</th><th style="width:70px" class="c">换算系数</th>' +
+              '<th style="width:80px" class="r">基准价</th><th style="width:88px" class="r">有效单价</th>' +
+              '<th style="width:48px" class="c">删除</th></tr>';
+            r.subs.forEach(sub => {
+              const it=getBench(sub.bid,sub.bsh); if(!it) return;
+              const ep=effPrice(sub), conv=sub.conv||1.0;
+              const ru=(r.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
+              const bu=(it.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
+              const mm=ru&&bu&&ru!==bu;
+              html += '<tr class="sub-r">' +
+                '<td><span class="sid">'+esc(it.id)+'</span></td>' +
+                '<td><div class="snm">'+esc(it.name)+'</div>' +
+                  '<div class="ssp">'+esc(it.spec.substring(0,100))+'</div>' +
+                  (it.remark?'<div class="srk">📝 '+esc(it.remark)+'</div>':'')+
+                '</td>' +
+                '<td style="font-size:11px;color:var(--tx3)">'+esc(it.sheet)+'</td>' +
+                '<td class="s-unit">'+(mm?'<span style="color:var(--red);font-weight:600">'+esc(it.unit)+'</span><div style="font-size:9px;color:var(--red)">⚠️清单:'+esc(r.unit)+'</div>':esc(it.unit))+'</td>' +
+                '<td class="c"><input class="cof-i" type="number" step="0.01" min="0.01" value="'+sub.coef.toFixed(2)+'"' +
+                  ' onchange="updCoef('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value);renderBoq()" title="子目系数">' +
+                  '<div class="cof-lbl">子目系数</div></td>' +
+                '<td class="c"><input class="cof-i" type="number" step="0.001" min="0.001" value="'+conv.toFixed(3)+'"' +
+                  ' style="'+(mm?'border-color:var(--red);color:var(--red)':'opacity:.4')+'"' +
+                  ' onchange="updConv('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value);renderBoq()" title="换算系数">' +
+                  '<div class="cof-lbl" style="'+(mm?'color:var(--red)':'')+'">换算系数</div></td>' +
+                '<td class="s-base r">¥'+it.price.toFixed(2)+'</td>' +
+                '<td class="s-eff r">¥'+ep.toFixed(2)+'</td>' +
+                '<td class="c"><button class="btn btn-del" onclick="delSub('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\')">✕</button></td>' +
+                '</tr>';
+            });
+            const subSum=r.subs.reduce((s,sub)=>s+effPrice(sub),0);
+            html += '<tr class="sub-sum-tr"><td colspan="7"><span style="font-size:11px;color:var(--tx3);font-weight:600">合计人工单价</span></td>' +
+              '<td class="sub-sum-val r">¥'+subSum.toFixed(2)+'</td><td></td></tr>';
+          }
+          html += '<tr class="addsub-tr"><td colspan="9">' +
+            '<button class="addsub-btn" onclick="openPicker('+r.id+')">＋ 挂子目（从基准价库选择）</button>' +
+            '</td></tr></table></td></tr>';
+        }
+      });
+    });
+    html += '</tbody></table>';
+  });
+  main.innerHTML = html;
+  updateSum();
+}
+
+// ═══════════ IMPORT ═══════════
+function importBoq() { document.getElementById('fileIn').click(); }
+function uDragover(e) { e.preventDefault(); document.getElementById('uploadArea').classList.add('dov'); }
+function uDragleave() { document.getElementById('uploadArea').classList.remove('dov'); }
+function uDrop(e) { e.preventDefault(); uDragleave(); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
+function handleFile(e) { if(e.target.files[0]) processFile(e.target.files[0]); e.target.value=''; }
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      if (!wb.SheetNames.length) { toast('文件为空'); return; }
+      const newGroups = [];
+      let totalN=0, totalSkip=0;
+
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if (data.length < 2) return;
+
+        // 找表头行（扫前10行）
+        let hdrRow=-1; const cm={};
+        for (let ri=0;ri<Math.min(10,data.length);ri++) {
+          if (!data[ri].some(h=>/项目名称/.test(String(h||'')))) continue;
+          hdrRow=ri;
+          data[ri].forEach((h,i)=>{
+            const s=String(h||'').replace(/[\s\n\r]/g,'');
+            if(/项目名称/.test(s)&&cm.name===undefined) cm.name=i;
+            if(/项目特征/.test(s)&&cm.spec===undefined) cm.spec=i;
+            if(/计量单位|单位/.test(s)&&cm.unit===undefined) cm.unit=i;
+            if(/备注/.test(s)&&cm.remark===undefined) cm.remark=i;
+          });
+          break;
+        }
+        if (hdrRow<0) return;
+
+        // 找工程量列（只在表头行精确匹配）
+        let qtyCol=-1;
+        for (let ri=hdrRow;ri<=Math.min(hdrRow+1,data.length-1);ri++) {
+          data[ri].forEach((h,i)=>{ if(/^工程量$|^数量$/.test(String(h||'').trim())&&qtyCol===-1) qtyCol=i; });
+          if(qtyCol>=0) break;
+        }
+        if (qtyCol===-1) {
+          data[hdrRow].forEach((h,i)=>{ const s=String(h||'').trim(); if(/工程量|数量/.test(s)&&s.length<10&&qtyCol===-1) qtyCol=i; });
+        }
+
+        // 按分部标题分组
+        const group={id:uid++,sheetName,open:true,sections:[]};
+        let curSec={id:uid++,name:'其他',open:true,rows:[]};
+
+        for (let i=hdrRow+1;i<data.length;i++) {
+          const row=data[i];
+          const name=cm.name!==undefined?String(row[cm.name]||'').replace(/\n/g,' ').trim():'';
+          if (!name) continue;
+          const unit=cm.unit!==undefined?String(row[cm.unit]||'').trim():'';
+          const qty=qtyCol>=0?row[qtyCol]:'';
+          const hasData=unit||(qty!==''&&qty!==null&&qty!==undefined);
+          if (!hasData) {
+            if(curSec.rows.length>0) group.sections.push(curSec);
+            curSec={id:uid++,name,open:true,rows:[]};
+            totalSkip++; continue;
+          }
+          curSec.rows.push(makeRow({
+            name, unit,
+            spec: cm.spec!==undefined?String(row[cm.spec]||'').replace(/\n/g,' ').trim():'',
+            qty: (qty!==''&&qty!==null&&qty!==undefined)?String(qty):'',
+            remark: (cm.remark!==undefined?String(row[cm.remark]||'').trim():'')||sheetName,
+          }));
+          totalN++;
+        }
+        if(curSec.rows.length>0) group.sections.push(curSec);
+        if(group.sections.length>0) newGroups.push(group);
+      });
+
+      if (!totalN) { toast('导入0条，请检查Excel列名是否含"项目名称"'); return; }
+      groups=newGroups; showBoq(); renderBoq();
+      const res=newGroups.map(g=>g.sheetName.replace('ZS02-','')+'：'+g.sections.reduce((a,s)=>a+s.rows.length,0)+'条').join(' / ');
+      toast('✓ 导入 '+totalN+' 条（'+res+'），跳过分部标题 '+totalSkip+' 行');
+    } catch(err) { toast('解析失败：'+err.message); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ═══════════ 用户意见反馈（self-improving）═══════════
+const FB_KEY = 'quota_tool_feedback';
+
+function loadFeedback() {
+  try { return JSON.parse(localStorage.getItem(FB_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveFeedbackList(list) {
+  localStorage.setItem(FB_KEY, JSON.stringify(list));
+}
+
+function openFeedback() {
+  document.getElementById('fbType').value = '价格不准';
+  document.getElementById('fbRef').value = '';
+  document.getElementById('fbDesc').value = '';
+  updateFbCount();
+  document.getElementById('feedbackMod').classList.remove('hidden');
+}
+function closeFeedback() {
+  document.getElementById('feedbackMod').classList.add('hidden');
+}
+async function updateFbCount() {
+  if (!CURRENT_USER) return;
+  const items = await _get('feedback', {eq:{col:'user_id',val:CURRENT_USER.id}, select:'id', limit:9999}).catch(()=>[]);
+  document.getElementById('fbCount').textContent = items?.length || 0;
+}
+
+async function submitFeedback() {
+  const type = document.getElementById('fbType').value;
+  const ref  = document.getElementById('fbRef').value.trim();
+  const desc = document.getElementById('fbDesc').value.trim();
+  if (!desc) { toast('请填写详细描述'); return; }
+  if (!CURRENT_USER) { toast('请先登录'); return; }
+
+  await _post('feedback', {
+    user_id: CURRENT_USER.id,
+    user_name: CURRENT_USER.email || CURRENT_USER.id,
+    fb_type: type, fb_ref: ref, fb_desc: desc,
+    proj_name: document.getElementById('projName').value || '',
+  });
+
+  document.getElementById('fbRef').value = '';
+  document.getElementById('fbDesc').value = '';
+  toast('✅ 反馈已提交，感谢您的建议！');
+}
+
+function exportFeedback() {
+  const list = loadFeedback();
+  if (!list.length) { toast('暂无反馈记录'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const aoa = [
+    ['意见反馈汇总表'],
+    ['导出时间：' + new Date().toLocaleString('zh-CN')],
+    [],
+    ['提交时间','问题类型','相关清单/子目','详细描述','关联项目'],
+  ];
+  list.forEach(f => aoa.push([f.date, f.type, f.ref, f.desc, f.projName]));
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:18},{wch:14},{wch:20},{wch:50},{wch:18}];
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:4}},
+    {s:{r:1,c:0},e:{r:1,c:4}},
+  ];
+  ws['!rows'] = aoa.map((row,i) => ({ hpt: i>=4 ? Math.max(30, Math.ceil(String(row[3]||'').length/30)*16) : 22 }));
+
+  XLSX.utils.book_append_sheet(wb, ws, '意见反馈');
+  XLSX.writeFile(wb, '意见反馈记录_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('✓ 已导出 ' + list.length + ' 条反馈记录');
+}
+
+function clearFeedback() {
+  if (!confirm('确认清空全部反馈记录？此操作不可撤销。')) return;
+  localStorage.removeItem(FB_KEY);
+  updateFbCount();
+  toast('已清空反馈记录');
+}
+
+// ═══════════ 基准价说明 ═══════════
+const BENCH_NOTE_TEXT = "一、修订内容\n1. 删除部分少用、不用的项目，如：水磨石、天花石材、树脂板、赛乐板、部分少用机电项目等；\n2. 合并部分关联的项目，如木饰面墙身及天花基层、龙骨隔墙、灯槽等；\n3. 对比18定额、24版企业定额、地产基准价、市场价格水平，调整部分企业基准价：\n   3.1 泥水班组：调整水泥砂楼地面、回填楼地面、瓷砖铺贴、石材铺贴，增加防水工程等项目人工单价；\n   3.2 木工班组：调整墙板饰面、龙骨基层、门工程等项目人工单价；\n   3.3 油漆班组：调整墙纸等项目人工单价；\n   3.4 铁工班组：调整装饰线、不锈钢饰面等项目人工单价；\n   3.5 玻璃班组：调整玻璃饰面、镜子饰面等项目人工单价；\n   3.6 各专业班组：调整铝板饰面、轻质隔墙，增加GRG饰面等项目人工单价；\n   3.7 其他班组：调整拆除工程项目人工单价；\n   3.8 幕墙班组：调整涂料、玻璃幕墙、石材幕墙、其他幕墙等项目人工单价；\n   3.9 机电班组：调整线槽工程、电缆工程、排水水管、阀门工程项目人工单价。\n\n二、目标成本应用情况\n1. 本基准价适用于普通装修的高层住宅、医院、康养项目、商业项目、酒店等项目；\n2. 《企业定额》人工费已考虑项目工人常规加班，但未考虑赶工、夜间施工、特殊工艺等额外成本；\n3. 赶工项目人工调整：按实际情况独立列项计算，不得高于人工费的5%；\n4. 夜间施工/节假日禁止施工调整：按实际情况独立列项计算，不得高于人工费的10%；\n5. 施工复杂、工艺要求高的项目：可计取降效费用，不得高于人工费10%；\n6. 独立工序或辅助工艺服务：费用不得超过该部分人工费的5%；\n7. 零星项目按实际情况发生计取；\n8. 赶工措施费、施工降效费用由项目部合理安排、管控、实施；\n9. 专业劳务分包费用已综合考虑现场安全管理等配合工作。\n\n三、投标成本应用\n1. 本基准价适用于高层住宅、医院、康养、商业、酒店等项目投标成本分析；\n2. 售楼部、样板间投标项目：按本基准价上浮15%计取投标成本；\n3. 工艺复杂项目：可按本基准价上浮10~20%计取投标成本。\n\n四、其它说明\n1. 本基准价为人工综合单价，包括对应施工科目一切工作内容（人工、机械[大型机械除外]、辅助用工等）；\n2. 本基准价不包括税金、劳务管理费等费用；\n3. 本基准价不包括一切辅材费用，如施工班组承包辅材费用，需按施工图纸实际发生及当期材料价格测算。\n";
+
+function openBenchNote() {
+  const body = document.getElementById('benchNoteBody');
+  const lines = BENCH_NOTE_TEXT.split('\n');
+  body.innerHTML = lines.map(line => {
+    if (/^[一二三四]、/.test(line)) {
+      return '<div style="font-weight:700;color:var(--acc2);font-size:13px;margin:14px 0 6px">' + esc(line) + '</div>';
+    }
+    if (!line.trim()) return '<div style="height:4px"></div>';
+    return '<div style="margin-bottom:3px">' + esc(line) + '</div>';
+  }).join('');
+  document.getElementById('benchNoteMod').classList.remove('hidden');
+}
+function closeBenchNote() {
+  document.getElementById('benchNoteMod').classList.add('hidden');
+}
+
+// ═══════════ PHASE 5-1: 基准价库更新 ═══════════
+function handleBenchFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  const usedBidSheets = new Set();  // 记录当前已挂载的子目(bid+sheet)，用于更新后校验
+  getAllRows().forEach(r => r.subs.forEach(s => usedBidSheets.add(s.bsh + '|' + s.bid)));
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      if (!wb.SheetNames.length) { toast('基准价文件为空'); return; }
+
+      const newDB = {};
+      let totalItems = 0;
+
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if (data.length < 2) return;
+
+        // 找表头行：含"内部编号"或"项目名称"的行
+        let hdrRow = -1; const cm = {};
+        for (let ri=0; ri<Math.min(10,data.length); ri++) {
+          const hasMarker = data[ri].some(h => /内部编号|项目\s*名\s*称/.test(String(h||'')));
+          if (!hasMarker) continue;
+          hdrRow = ri;
+          data[ri].forEach((h,i) => {
+            const s = String(h||'').replace(/[\s\n\r]/g,'');
+            if (/内部编号/.test(s) && cm.id===undefined) cm.id=i;
+            if (/工种/.test(s) && cm.trade===undefined) cm.trade=i;
+            if (/项目名称/.test(s) && cm.name===undefined) cm.name=i;
+            if (/项目特征/.test(s) && cm.spec===undefined) cm.spec=i;
+            if (/^单位$/.test(s) && cm.unit===undefined) cm.unit=i;
+            if (/人工综合单价|综合单价|单价/.test(s) && cm.price===undefined) cm.price=i;
+            if (/备注/.test(s) && cm.remark===undefined) cm.remark=i;
+          });
+          break;
+        }
+        if (hdrRow<0 || cm.id===undefined || cm.price===undefined) return;
+
+        const items = [];
+        for (let i=hdrRow+1; i<data.length; i++) {
+          const row = data[i];
+          const id = String(row[cm.id]||'').trim();
+          if (!id) continue;  // 跳过分部标题行（如"一 地面工程"）
+          const price = parseFloat(row[cm.price]);
+          if (isNaN(price)) continue;
+          items.push({
+            id,
+            trade: cm.trade!==undefined ? String(row[cm.trade]||'').trim() : '',
+            name:  cm.name!==undefined  ? String(row[cm.name]||'').replace(/\n/g,' ').trim() : '',
+            spec:  cm.spec!==undefined  ? String(row[cm.spec]||'').replace(/\n/g,' ').trim() : '',
+            unit:  cm.unit!==undefined  ? String(row[cm.unit]||'').trim() : '',
+            price,
+            remark: cm.remark!==undefined ? String(row[cm.remark]||'').trim() : '',
+          });
+        }
+        if (items.length) { newDB[sheetName] = items; totalItems += items.length; }
+      });
+
+      if (!totalItems) { toast('未识别到有效基准价数据，请检查文件格式（需含"内部编号"列）'); return; }
+
+      // 校验：当前已挂载子目是否在新库中仍存在
+      let missingCount = 0;
+      usedBidSheets.forEach(key => {
+        const [sh, id] = key.split('|');
+        const found = (newDB[sh]||[]).find(it => it.id === id);
+        if (!found) missingCount++;
+      });
+
+      const proceed = missingCount === 0 || confirm(
+        '新基准价库中有 ' + missingCount + ' 个已挂载子目编号不存在了（可能编号变更或删除），' +
+        '这些清单行的子目会显示为失效。是否仍要更新基准价库？'
+      );
+      if (!proceed) return;
+
+      // 替换全局数据
+      DB = newDB;
+      rebuildAll();
+      SHEETS = Object.keys(DB);
+
+      // 重建侧栏筛选 tabs
+      const tabsEl = document.getElementById('ftabs');
+      tabsEl.innerHTML = '<button class="ftab on" data-sh="all" onclick="setSheet(\'all\',this)">全部</button>';
+      shFilter = 'all';
+      SHEETS.forEach(sh => {
+        const b = document.createElement('button');
+        b.className = 'ftab'; b.dataset.sh = sh;
+        b.textContent = sh.replace('班组','').replace('工程','').replace('（现场专业分包）','');
+        b.onclick = () => setSheet(sh, b);
+        tabsEl.appendChild(b);
+      });
+
+      renderLib();
+      renderBoq();  // 重新渲染，失效子目会在getBench查找不到时跳过显示
+
+      toast('✓ 基准价库已更新：共 ' + totalItems + ' 条子目'
+        + (missingCount>0 ? '（' + missingCount + ' 个已挂载子目失效，请检查）' : ''));
+    } catch(err) {
+      toast('基准价库解析失败：' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+
+// ═══════════ EXPORT ═══════════
+function exportResult() {
+  if (!groups.length) { toast('暂无数据可导出'); return; }
+  const wb       = XLSX.utils.book_new();
+  const proj     = document.getElementById('projName').value || '套价表';
+  const team     = document.getElementById('projTeam').value || '—';
+  const date     = document.getElementById('projDate').value || '—';
+  const grandTot = groups.reduce((a,g) => a + grpTotal(g), 0);
+
+  // ── 11列（A-K，1-based行号）────────────────────────────
+  // A:序号 B:编号 C:项目名称/子目名称 D:项目特征/子目规格
+  // E:单位 F:工程量 G:基准单价 H:综合系数 I:定额单价 J:定额合价 K:备注
+  //
+  // 公式关系：
+  //   子目行  I = G × H                （基准价 × 综合系数）
+  //   清单行  I = SUM(子目行 I列)       （所有挂载子目有效单价之和）
+  //   清单行  J = F × I                （工程量 × 定额单价）
+  //   分部行  J = SUM(该分部清单行 J列)
+  //   分组行  J = SUM(该分组分部行 J列)
+  //   合计行  J = SUM(所有分组行 J列)
+
+  const ws   = {};
+  ws['!ref'] = 'A1:K1';  // 初始，后续扩展
+
+  let ri = 0;  // 当前行（0-based）
+
+  // 写单元格辅助函数
+  function sc(r, c, value, isFormula, numFmt) {
+    const ref  = XLSX.utils.encode_cell({r, c});
+    const cell = isFormula
+      ? { f: value, t: 'n' }
+      : { v: (value===null||value===undefined)?'':value,
+          t: typeof value==='number'?'n':(value===''?'z':'s') };
+    if (numFmt) cell.z = numFmt;
+    ws[ref] = cell;
+    // 扩展 !ref
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    range.e.r = Math.max(range.e.r, r);
+    range.e.c = Math.max(range.e.c, c);
+    ws['!ref'] = XLSX.utils.encode_range(range);
+  }
+
+  // 整行写入（普通值）
+  function Rv(vals) {
+    vals.forEach((v,c) => { if(v!==''&&v!==undefined) sc(ri,c,v,false); });
+  }
+
+  const meta  = [];   // 每行 lv
+  const mergeAE = []; // 哪些行需要 C:I 合并
+  function rowMeta(lv, doMerge) { meta.push(lv); mergeAE.push(!!doMerge); }
+
+  // ── 标题3行 ──
+  sc(ri,0,proj+'  企业定额套价表'); rowMeta(0); ri++;
+  sc(ri,0,'类型系数：×'+globalCoef.toFixed(2)+'    班组类型：'+team+'    编制日期：'+date); rowMeta(0); ri++;
+  sc(ri,0,'说明：企业定额为劳务综合单价（仅人工费），不含甲供主材（石材、瓷砖、木饰面等）'); rowMeta(0); ri++;
+
+  // ── 唯一全局表头（row index 3）──
+  ['序号','编号','项目名称 / 子目名称','项目特征 / 子目规格说明',
+   '单位','工程量','基准单价','综合系数','定额单价(元)','定额合价(元)','备注']
+   .forEach((h,c) => sc(ri,c,h));
+  rowMeta(0); ri++;
+
+  let seqIdx = 0;
+  const grpJRows  = [];  // 收集每个Sheet分组行的行号（用于合计公式）
+
+  groups.forEach(g => {
+    const grpRow = ri;  // Sheet分组行行号
+
+    // Sheet分组行先占位（J列公式后填）
+    sc(ri,2,g.sheetName); rowMeta(1, true); ri++;
+
+    const secJRows = [];  // 收集该分组内所有分部行行号（用于分组J公式）
+
+    g.sections.forEach(s => {
+      const secRow = ri;  // 分部标题行行号
+
+      // 分部标题行先占位（J列公式后填）
+      sc(ri,2,s.name); rowMeta(2, true); ri++;
+
+      const boqJRows = [];  // 收集该分部内所有清单行行号（用于分部J公式）
+
+      s.rows.forEach(r => {
+        seqIdx++;
+        const boqRow = ri;  // 清单行行号
+
+        sc(ri,0,seqIdx);                                              // A 序号
+        sc(ri,2,r.name);                                             // C 项目名称
+        sc(ri,3,r.spec);                                             // D 项目特征
+        sc(ri,4,r.unit);                                             // E 单位
+        if (r.qty!=='') sc(ri,5,parseFloat(r.qty),false,'#,##0.000'); // F 工程量
+        if (r.hourlyMode) {
+          // 时工模式：直接写定额单价，备注标注，不挂子目公式
+          sc(ri,8,hourlyRate,false,'#,##0.00');                      // I 定额单价 = 时工单价
+          sc(ri,10,(r.remark?r.remark+'；':'')+'按时工计算（'+hourlyRate.toFixed(0)+'元/工日）'); // K 备注
+        } else {
+          sc(ri,10,r.remark);                                        // K 备注
+        }
+        rowMeta(3); ri++;
+
+        const subIRows = [];  // 收集子目行行号（用于清单I公式）
+
+        if (!r.hourlyMode) {
+          r.subs.forEach(sub => {
+            const it = getBench(sub.bid, sub.bsh);
+            if (!it) return;
+            const conv = sub.conv || 1.0;
+            const _coef = parseFloat(sub.coef) || 1.0;
+            const _conv = parseFloat(conv);
+            const _glob = parseFloat(globalCoef) || 1.0;
+            const totalCoef = parseFloat((_coef * _glob * _conv).toFixed(3));
+
+            const ru=(r.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
+            const bu=(it.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
+            const mm=ru&&bu&&ru!==bu;
+
+            sc(ri,1,it.id);                                           // B 子目编号
+            sc(ri,2,it.name);                                         // C 子目名称
+            sc(ri,3,it.spec?it.spec.substring(0,100):'');             // D 子目规格
+            sc(ri,4,it.unit);                                         // E 定额单位
+            sc(ri,6,it.price,false,'#,##0.00');                       // G 基准单价（数值）
+            sc(ri,7,totalCoef,false,'0.000');                         // H 综合系数（数值）
+            // I = G × H（公式）
+            const subRef = ri+1;  // Excel 1-based
+            sc(ri,8,'G'+subRef+'*H'+subRef,true,'#,##0.00');          // I 有效单价
+            sc(ri,10,mm?'⚠️定额单位'+it.unit+'≠清单单位'+r.unit:(it.remark||'')); // K
+            subIRows.push(ri);
+            rowMeta(4); ri++;
+          });
+        }
+
+        // 回填清单行 I、J 公式
+        const boqRef = boqRow+1;  // Excel 1-based
+        if (r.hourlyMode) {
+          // 时工模式：I列已是固定值（不覆盖），J = F × I 仍用公式
+        } else if (subIRows.length > 0) {
+          // I = SUM(子目行I列)
+          const iRefs = subIRows.map(r2 => 'I'+(r2+1)).join('+');
+          const iFormula = subIRows.length===1 ? 'I'+(subIRows[0]+1) : iRefs;
+          sc(boqRow,8,iFormula,true,'#,##0.00');
+        } else {
+          sc(boqRow,8,'',false);
+        }
+        // J = F × I
+        sc(boqRow,9,'F'+boqRef+'*I'+boqRef,true,'#,##0.00');
+        boqJRows.push(boqRow);
+      });
+
+      // 回填分部行 J 公式 = SUM(该分部所有清单行J列)
+      if (boqJRows.length > 0) {
+        const jRefs = boqJRows.map(r2=>'J'+(r2+1)).join('+');
+        sc(secRow,9,jRefs,true,'#,##0.00');
+      }
+      secJRows.push(secRow);
+    });
+
+    // 回填分组行 J 公式 = SUM(该分组所有分部行J列)
+    if (secJRows.length > 0) {
+      const jRefs = secJRows.map(r2=>'J'+(r2+1)).join('+');
+      sc(grpRow,9,jRefs,true,'#,##0.00');
+    }
+    grpJRows.push(grpRow);
+  });
+
+  // ── 合计行 J = SUM(所有分组行J列) ──
+  sc(ri,2,'合  计');
+  if (grpJRows.length > 0) {
+    const jRefs = grpJRows.map(r2=>'J'+(r2+1)).join('+');
+    sc(ri,9,jRefs,true,'#,##0.00');
+  }
+  rowMeta(0); ri++;
+
+  // ── 列宽 ──
+  ws['!cols']=[
+    {wch:5},   // A 序号
+    {wch:10},  // B 编号
+    {wch:26},  // C 项目名称/子目名称
+    {wch:44},  // D 项目特征/子目规格
+    {wch:7},   // E 单位
+    {wch:9},   // F 工程量
+    {wch:10},  // G 基准单价
+    {wch:8},   // H 综合系数
+    {wch:11},  // I 定额单价
+    {wch:12},  // J 定额合价
+    {wch:22},  // K 备注
+  ];
+
+  // ── 行高 & outline level ──
+  ws['!rows'] = meta.map((lv, i) => {
+    const obj = {};
+    if (lv===4)      { obj.hpt=30; obj.level=2; }
+    else if (lv===3) { obj.hpt=44; obj.level=1; }
+    else if (lv===2) { obj.hpt=20; }
+    else if (lv===1) { obj.hpt=24; }
+    else if (i===0)  { obj.hpt=34; }
+    else if (i===3)  { obj.hpt=28; }
+    else             { obj.hpt=20; }
+    return obj;
+  });
+
+  // ── 合并单元格 ──
+  const merges=[
+    {s:{r:0,c:0},e:{r:0,c:10}},
+    {s:{r:1,c:0},e:{r:1,c:10}},
+    {s:{r:2,c:0},e:{r:2,c:10}},
+    {s:{r:ri-1,c:2},e:{r:ri-1,c:8}},  // 合计行 C:I
+  ];
+  meta.forEach((_,i)=>{
+    if(meta[i]===1||meta[i]===2)
+      merges.push({s:{r:i,c:2},e:{r:i,c:8}});
+  });
+  ws['!merges']=merges;
+
+  // ── 单元格数字格式（遍历补全）──
+  const wsRange = XLSX.utils.decode_range(ws['!ref']||'A1:K1');
+  for (let r=wsRange.s.r; r<=wsRange.e.r; r++) {
+    for (let c=wsRange.s.c; c<=wsRange.e.c; c++) {
+      const ref  = XLSX.utils.encode_cell({r,c});
+      const cell = ws[ref];
+      if (!cell) continue;
+      // 数字格式
+      if (!cell.z) {
+        if (c===7) cell.z='0.000';
+        else if (c===5||c===6||c===8||c===9) cell.z='#,##0.00';
+      }
+      // 对齐
+      const isCtr=(c===0||c===4||c===7);
+      const isR=(c>=5&&c<=9);
+      cell.s={alignment:{
+        vertical:'center',
+        horizontal:isR?'right':isCtr?'center':'left',
+        wrapText:c===3
+      }};
+    }
+  }
+
+  ws['!outline']={above:true,left:true};
+
+  XLSX.utils.book_append_sheet(wb,ws,'套价清单');
+  XLSX.writeFile(wb,proj+'_套价结果.xlsx');
+  toast('✓ 已导出：'+proj+'_套价结果.xlsx（含公式）');
+}
+// ═══════════ SUMMARY ═══════════
+function updateSum() {
+  const allRows=getAllRows();
+  const total=allRows.reduce((s,r)=>s+(rowTotal(r)||0),0);
+  const priced=allRows.filter(r=>r.subs.length>0).length;
+  const nsubs=allRows.reduce((s,r)=>s+r.subs.length,0);
+  document.getElementById('rowCnt').textContent=allRows.length;
+  document.getElementById('s-rows').textContent=allRows.length;
+  document.getElementById('s-priced').textContent=priced;
+  document.getElementById('s-subs').textContent=nsubs;
+  document.getElementById('s-total').textContent='¥ '+fmt(total);
+}
+
+// ═══════════ PICKER ═══════════
+function openPicker(rid) {
+  pickerRowId=rid; document.getElementById('pkSrch').value='';
+  document.getElementById('pickerMod').classList.remove('hidden');
+  renderPicker(); setTimeout(()=>document.getElementById('pkSrch').focus(),50);
+}
+function closePicker() { document.getElementById('pickerMod').classList.add('hidden'); pickerRowId=null; }
+function renderPicker() {
+  const q=document.getElementById('pkSrch').value.trim().toLowerCase();
+  const items=q?ALL.filter(i=>i.name.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)||i.trade.includes(q)):ALL;
+  const list=document.getElementById('pkList');
+  if(!items.length){list.innerHTML='<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3)">未找到</div>';return;}
+  list.innerHTML=items.slice(0,300).map(it=>
+    '<div class="mitem" onclick="pkSel(\''+esc(it.id)+'\',\''+esc(it.sheet)+'\')">' +
+    '<div class="mitem-hd"><span class="mitem-id">'+esc(it.id)+'</span><span class="mitem-sh">'+esc(it.sheet)+'</span></div>' +
+    '<div class="mitem-nm">'+esc(it.name)+'</div>' +
+    '<div class="mitem-ft"><span class="mitem-un">'+esc(it.unit)+'</span><span class="mitem-pr">¥'+it.price.toFixed(2)+'</span></div>' +
+    '</div>'
+  ).join('');
+}
+function pkSel(id,sh) { if(pickerRowId!==null) addSub(pickerRowId,id,sh); closePicker(); }
+
+// ═══════════ COEF MODAL ═══════════
+const COEF_OPTS=[
+  {lbl:'高层住宅（精装≥2000元/m²）',range:'×1.10~1.20',val:1.15},
+  {lbl:'售楼部/样板间（中高端）',range:'×1.10~1.20',val:1.15},
+  {lbl:'酒店项目',range:'×1.10~1.30',val:1.20},
+  {lbl:'医院/康养/中高端商业',range:'×1.05~1.15',val:1.10},
+  {lbl:'高层住宅（精装<2000元/m²）',range:'×1.00',val:1.00},
+];
+function buildCoefOpts() {
+  document.getElementById('coefOpts').innerHTML=COEF_OPTS.map((o,i)=>
+    '<div class="coef-opt"><span class="coef-opt-lbl">'+o.lbl+'</span>' +
+    '<span class="coef-opt-range">'+o.range+'</span>' +
+    '<button class="btn btn-sm" id="cob-'+i+'" onclick="pickCoef('+o.val+','+i+')">选用</button></div>'
+  ).join('');
+}
+function openCoefModal() { pendCoef=globalCoef; document.getElementById('customCoef').value=globalCoef.toFixed(2); document.getElementById('coefMod').classList.remove('hidden'); }
+function closeCoefModal() { document.getElementById('coefMod').classList.add('hidden'); }
+function pickCoef(val,idx) {
+  pendCoef=val; document.getElementById('customCoef').value=val.toFixed(2);
+  document.querySelectorAll('[id^="cob-"]').forEach((b,i)=>b.className='btn btn-sm'+(i===idx?' btn-pri':''));
+}
+function applyCoef() {
+  const v=parseFloat(document.getElementById('customCoef').value);
+  globalCoef=(!isNaN(v)&&v>=0.5&&v<=3)?v:pendCoef;
+  document.getElementById('coefBadge').textContent='×'+globalCoef.toFixed(2);
+  closeCoefModal(); renderBoq(); toast('✓ 类型系数已设为 ×'+globalCoef.toFixed(2));
+}
+
+// ═══════════ AI PRICING ═══════════
+function toggleKeyVis() {
+  const inp=document.getElementById('aiKey'),btn=document.getElementById('keyVisBtn');
+  if(inp.type==='password'){inp.type='text';btn.textContent='🙈';}
+  else{inp.type='password';btn.textContent='👁';}
+}
+async function testApi() {
+  const k=document.getElementById('aiKey').value.trim();
+  if(!k){toast('请先输入 API Key');return;}
+  toast('正在测试连接…');
+  try {
+    const r=await fetch('https://api.deepseek.com/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+k},
+      body:JSON.stringify({model:'deepseek-chat',max_tokens:10,temperature:0,messages:[{role:'user',content:'reply ok'}]})
+    });
+    if(r.ok) toast('✅ 连接成功');
+    else { const t=await r.text(); toast('❌ 失败 '+r.status+': '+t.substring(0,60)); }
+  } catch(e) { toast('❌ 错误：'+e.message+' (请在本地浏览器打开)'); }
+}
+
+// 关键词路由 → 缩小候选范围
+function routeSheets(name,spec) {
+  const txt=(name+' '+spec).toLowerCase();
+  const rules=[
+    {k:['泥水','瓷砖','石材','地面','墙面','铺贴','找平','砂浆','陶粒','回填','自流平','勾缝','门槛','波打线','拼花','踢脚','防水','堵漏','止水','防潮','卷材','涂膜'],s:['泥水班组']},
+    {k:['木工','木饰面','柜','门套','窗套','龙骨','石膏板','硅钙板','天花','吊顶','间墙','隔墙','夹板','灯槽','木线','踢脚线'],s:['木工班组']},
+    {k:['油漆','涂料','乳胶漆','批灰','腻子','刷漆','喷漆','木器漆','防锈','墙纸','壁纸','墙布'],s:['油漆班组']},
+    {k:['铁','钢','焊接','铁件','预埋','钢架','钢板','角铁','槽钢','金属压条','金属装饰线','不锈钢'],s:['铁工班组']},
+    {k:['玻璃','镜','夹胶','钢化','玻璃砖','镜面'],s:['玻璃班组']},
+    {k:['拆除','拆卸','凿除','打拆','移除','脚手架','开荒','保洁','成品保护'],s:['其他班组']},
+    {k:['幕墙','铝板','铝单板','铝格栅','蜂窝','干挂','石材幕墙','玻璃幕墙','外墙'],s:['幕墙班组']},
+    {k:['水管','电线','电缆','桥架','线槽','开关','插座','灯具','消防','喷淋','空调','风管','排水','给水','强电','弱电','机电','水电'],s:['机电班组']},
+  ];
+  const matched=new Set();
+  rules.forEach(r=>{if(r.k.some(k=>txt.includes(k))) r.s.forEach(s=>matched.add(s));});
+  return matched.size>0?[...matched]:Object.keys(DB);
+}
+
+function buildCandidates(name,spec,unit) {
+  const sheets=routeSheets(name,spec);
+  // 在候选 sheet 内再做关键词二次筛选，最多取60条
+  const allCands=[];
+  sheets.forEach(sh=>{
+    (DB[sh]||[]).forEach(it=>{ allCands.push({...it,sheet:sh}); });
+  });
+  // 按名称关键词相关度排序：取清单名称中的2字词组匹配
+  const words=name.replace(/[（）()\-—\/]/g,' ').split(/\s+/).filter(w=>w.length>=2);
+  const scored=allCands.map(it=>{
+    let score=0;
+    words.forEach(w=>{ if(it.name.includes(w)) score+=2; if(it.spec.includes(w)) score+=1; });
+    if(unit&&it.unit===unit) score+=3;
+    return {it,score};
+  });
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.slice(0,60).map(x=>x.it);
+}
+
+async function callDs(key,sys,user) {
+  const r=await fetch('https://api.deepseek.com/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model:'deepseek-chat',max_tokens:600,temperature:0,
+      messages:[{role:'system',content:sys},{role:'user',content:user}]})
+  });
+  if(!r.ok){const t=await r.text();throw new Error(r.status+': '+t.substring(0,100));}
+  return (await r.json()).choices[0].message.content.trim();
+}
+function parseAi(raw) {
+  try{return JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){return null;}
+}
+
+async function priceOne(r,key) {
+  const cands=buildCandidates(r.name,r.spec,r.unit);
+  if(!cands.length) return {matched:[],overall_confidence:0,note:'无候选子目'};
+
+  const candStr=cands.map(c=>c.id+'|'+c.name+'|'+c.unit+'|'+c.sheet).join('\n');
+
+  const sys=`你是精装修工程造价专家，负责将清单项目与企业基准价定额子目精确匹配。
+
+## 当前知识库（必须遵守）
+${AI_KNOWLEDGE.tips.map(t=>`【技巧】${t.keyword}：${t.content}${t.team?"（"+t.team+"）":""}`).join("\n")}
+${AI_KNOWLEDGE.synonyms.map(s=>`【同义词】"${s.keyword}" → 标准名称为"${s.content}"${s.team?"（"+s.team+"）":""}`).join("\n")}
+${AI_KNOWLEDGE.rules.map(r=>`【规则】含关键词"${r.keyword}"时：${r.content}${r.team?"（"+r.team+"）":""}`).join("\n")}
+
+严格规则：
+1. 通常只选1个最匹配的子目。只有清单项目明确包含多个独立工序（如"基层+面层"）时才选2个
+2. 禁止将同类型的多个规格子目同时选入（例如不能同时选NS-015和NS-016，只选最匹配的1个）
+3. 置信度：名称+单位完全吻合≥85，基本对应60~84，模糊<60
+4. 单位不一致时置信度不超过70，并在reason中说明
+5. 若找不到合适子目，返回空matched和overall_confidence:0（该项目可能需按时工日工资计算，无需勉强匹配）
+6. 套价技巧：石膏板天花/间墙未注明层数默认双层；地面砂浆厚度默认40mm；
+   "乳胶漆"只对应油漆班组子目，不要选木工班组子目
+7. 只返回JSON，不含任何其他文字`;
+
+  const user=`清单项目：
+【名称】${r.name}
+【特征】${r.spec||'（无）'}
+【单位】${r.unit||'（未知）'}
+
+候选子目（格式：编号|名称|单位|班组）：
+${candStr}
+
+返回JSON格式（只选最匹配的1个，特殊情况最多2个）：
+{"matched":[{"id":"子目编号","sheet":"班组名称（必须与候选列表完全一致）","confidence":85,"reason":"匹配理由"}],"overall_confidence":85,"note":"备注"}`;
+
+  const raw=await callDs(key,sys,user);
+  const res=parseAi(raw);
+  if(!res) return {matched:[],overall_confidence:0,note:'格式异常:'+raw.substring(0,60)};
+  return res;
+}
+
+async function startAiPricing() {
+  const key=document.getElementById('aiKey').value.trim();
+  if(!key){toast('请先输入 DeepSeek API Key');return;}
+  const allRows=getAllRows();
+  if(!allRows.length){toast('请先导入清单');return;}
+  const targets=allRows.filter(r=>r.subs.length===0);
+  if(!targets.length){toast('所有行均已套价');return;}
+  if(!confirm('即将对 '+targets.length+' 条未套价清单行进行AI自动套价，是否继续？')) return;
+
+  aiRunning=true; aiStop=false;
+  document.getElementById('aiBtn').disabled=true;
+  document.getElementById('aiStopBtn').classList.remove('hidden');
+  document.getElementById('aiProgWrap').classList.remove('hidden');
+  let done=0,ok=0,warn=0,fail=0;
+  const total=targets.length;
+
+  function setP(lbl) {
+    document.getElementById('aiProgFill').style.width=Math.round(done/total*100)+'%';
+    document.getElementById('aiProgLbl').textContent=lbl;
+    document.getElementById('aiProgCnt').textContent=done+'/'+total;
+  }
+
+  for (const r of targets) {
+    if(aiStop) break;
+    setP('处理：'+r.name.substring(0,18)+'…');
+    try {
+      const res=await priceOne(r,key);
+      const conf=res.overall_confidence||0;
+      const matched=res.matched||[];
+
+      if(!matched.length||conf<60) {
+        r.aiNote={conf,status:'low',note:res.note||'置信度不足，请手动套价'}; fail++;
+      } else {
+        let added=0;
+        matched.forEach(m=>{
+          // 严格校验：sheet名必须在DB中存在，id必须存在
+          const sheetData=DB[m.sheet];
+          if(!sheetData){console.warn('AI返回了不存在的sheet:',m.sheet);return;}
+          const it=sheetData.find(i=>i.id===m.id);
+          if(!it){console.warn('AI返回了不存在的id:',m.id,'in',m.sheet);return;}
+          if(r.subs.find(s=>s.bid===m.id&&s.bsh===m.sheet)) return;
+          r.subs.push({bid:m.id,bsh:m.sheet,coef:1.0,conv:1.0});
+          added++;
+        });
+        if(added>0) {
+          r.aiNote={conf,status:conf>=85?'hi':'mid',note:res.note||matched.map(m=>m.reason).filter(Boolean).join('；')};
+          if(conf>=85) ok++; else warn++;
+        } else {
+          r.aiNote={conf:0,status:'low',note:'AI返回子目在库中未找到，请手动套价'}; fail++;
+        }
+      }
+    } catch(e) {
+      r.aiNote={conf:0,status:'err',note:'请求失败:'+e.message.substring(0,50)}; fail++;
+    }
+    done++; setP(done<total?'处理中…':'完成'); renderBoq();
+    await new Promise(res=>setTimeout(res,350));
+  }
+
+  aiRunning=false;
+  document.getElementById('aiBtn').disabled=false;
+  document.getElementById('aiStopBtn').classList.add('hidden');
+  toast('✨ AI套价完成'+(aiStop?'（已停止）':'')+
+    '：挂载'+(ok+warn)+'条，需复核'+warn+'条，低置信/失败'+fail+'条');
+}
+function stopAi() { aiStop=true; toast('正在停止…'); }
+
+// ═══════════ UTILS ═══════════
+function showBoq() { document.getElementById('uploadArea').classList.add('hidden'); document.getElementById('boqMain').classList.remove('hidden'); }
+function showUpload() { document.getElementById('uploadArea').classList.remove('hidden'); document.getElementById('boqMain').classList.add('hidden'); }
+function clearAll() { if(!groups.length)return; if(!confirm('确认清空全部清单行？'))return; groups=[]; showUpload(); updateSum(); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+let toastTm=null;
+function toast(msg) {
+  document.querySelector('.toast')?.remove(); if(toastTm) clearTimeout(toastTm);
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); toastTm=setTimeout(()=>t.remove(),3200);
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){closePicker();closeCoefModal();} });
+
+// ═══════════ PHASE 5-3: 历史方案保存 ═══════════
+// ═══════════ SUPABASE PROJECTS ═══════════
+async function saveProject() {
+  if (!groups.length) { toast('暂无数据可保存'); return; }
+  if (!CURRENT_USER) { toast('请先登录'); return; }
+  const projName = document.getElementById('projName').value.trim() || '未命名方案';
+  const allRows = getAllRows();
+  const payload = {
+    user_id: CURRENT_USER.id, name: projName,
+    global_coef: globalCoef,
+    proj_team: document.getElementById('projTeam').value,
+    proj_date: document.getElementById('projDate').value,
+    hourly_rate: parseFloat(document.getElementById('hourlyRateInput')?.value || 350),
+    groups_json: JSON.parse(JSON.stringify(groups)),
+    row_count: allRows.length,
+    priced_count: allRows.filter(r=>r.subs.length>0).length,
+  };
+  // 同名检查
+  const exist = await _get('projects', {eq:{col:'user_id',val:CURRENT_USER.id}, select:'id,name', limit:100});
+  const dup = exist?.find(p => p.name === projName);
+  if (dup) {
+    if (!confirm('已存在同名方案「'+projName+'」，是否覆盖？')) return;
+    await _patch('projects', dup.id, payload);
+  } else {
+    await _post('projects', payload);
+  }
+  toast('✓ 方案已保存：' + projName);
+}
+
+async function openHistory() {
+  if (!document.getElementById('histMod')) {
+    const d = document.createElement('div'); d.id='histMod'; d.className='modal-ov hidden';
+    d.innerHTML='<div class="modal" style="width:520px;max-height:75vh"><div class="modal-hdr"><span class="modal-ttl">📂 历史套价方案</span><button class="modal-x" onclick="closeHistory()">×</button></div><div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;color:var(--tx3)">保存在云端</div><div id="histList" style="overflow-y:auto;padding:8px;max-height:calc(75vh-100px)"></div></div>';
+    document.body.appendChild(d);
+  }
+  document.getElementById('histMod').classList.remove('hidden');
+  await renderHistList();
+}
+function closeHistory() { document.getElementById('histMod')?.classList.add('hidden'); }
+
+async function renderHistList() {
+  const el = document.getElementById('histList');
+  if (!CURRENT_USER) { el.innerHTML='<div style="padding:30px;text-align:center;color:var(--tx3)">请先登录</div>'; return; }
+  const hist = await _get('projects', {eq:{col:'user_id',val:CURRENT_USER.id}, order:{col:'created_at',asc:false}, limit:30}).catch(()=>[]);
+  if (!hist.length) { el.innerHTML='<div style="padding:30px;text-align:center;color:var(--tx3);font-size:12px">暂无保存的方案</div>'; return; }
+  el.innerHTML = hist.map(h => `
+    <div class="hist-item">
+      <div class="hist-item-top">
+        <span class="hist-item-name">📋 ${esc(h.name)}</span>
+        <span class="hist-item-date">${new Date(h.created_at).toLocaleString('zh-CN')}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="hist-item-meta">清单 ${h.row_count||0} 条 · 已套价 ${h.priced_count||0} 条 · 系数 ×${parseFloat(h.global_coef||1).toFixed(2)}</span>
+        <button class="btn btn-sm btn-pri" onclick="restoreProject(${h.id})" style="margin-left:auto">恢复</button>
+        <button class="btn btn-del btn-sm" onclick="deleteProject(${h.id})">删除</button>
+      </div>
+    </div>`).join('');
+}
+
+async function restoreProject(id) {
+  const hist = await _get('projects', {eq:{col:'id',val:id}});
+  const snap = hist?.[0];
+  if (!snap) { toast('方案不存在'); return; }
+  if (groups.length && !confirm('恢复方案将覆盖当前数据，是否继续？')) return;
+  groups = snap.groups_json;
+  globalCoef = parseFloat(snap.global_coef||1);
+  pendCoef = globalCoef;
+  document.getElementById('projName').value = snap.name;
+  document.getElementById('projTeam').value = snap.proj_team || '';
+  document.getElementById('projDate').value = snap.proj_date || '';
+  document.getElementById('coefBadge').textContent = '×' + globalCoef.toFixed(2);
+  if (snap.hourly_rate) { const inp = document.getElementById('hourlyRateInput'); if(inp) inp.value = snap.hourly_rate; }
+  let maxId = 0;
+  groups.forEach(g => { maxId = Math.max(maxId, g.id); g.sections?.forEach(s => { maxId = Math.max(maxId, s.id); s.rows?.forEach(r => { maxId = Math.max(maxId, r.id); }); }); });
+  uid = maxId + 1;
+  showBoq(); renderBoq();
+  closeHistory();
+  toast('✓ 已恢复方案：' + snap.name);
+}
+
+async function deleteProject(id) {
+  if (!confirm('确认删除此方案？')) return;
+  await _del('projects', id);
+  toast('已删除');
+  renderHistList();
+}
+
+// ═══════════ AI 知识库上传 ═══════════
+document.getElementById("knowledgeFileIn")?.addEventListener("change", async function(e) {
+  const file = e.target.files[0]; if (!file) return; e.target.value = "";
+  if (!confirm("上传Excel将替换全部现有知识库数据，确认？")) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:"binary"});
+      const rows = []; let catMap = {};
+      wb.SheetNames.forEach(sn => {
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1});
+        const hdr = aoa[0]; if (!hdr) return;
+        const ci = {}; hdr.forEach((h,i) => { const s = String(h||"").replace(/[\s　]/g,""); if(s.includes("分类")||s.includes("类别")) ci.cat=i; if(s.includes("关键词")||s.includes("写法")||s.includes("特征")) ci.key=i; if(s.includes("描述")||s.includes("技巧")||s.includes("标准名称")||s.includes("规则")||s.includes("判断")) ci.con=i; if(s.includes("班组")||s.includes("适用")) ci.team=i; });
+        if (ci.key===undefined || ci.con===undefined) return;
+        for (let i=1; i<aoa.length; i++) {
+          const r = aoa[i]; if (!r) continue;
+          const key = String(r[ci.key]||"").trim(); if (!key) continue;
+          const con = String(r[ci.con]||"").trim(); if (!con) continue;
+          const cat = ci.cat!==undefined ? String(r[ci.cat]||"").trim() : sn.replace(/[\s　]/g,"");
+          const team = ci.team!==undefined ? String(r[ci.team]||"").trim() : "";
+          rows.push({category:cat, keyword:key, content:con, team});
+        }
+      });
+      if (!rows.length) { toast("❌ 未识别到有效数据"); return; }
+      toast("⏳ 写入 " + rows.length + " 条...");
+      const h = _h(); h["Prefer"] = "return=minimal";
+      await fetch(SUPABASE_URL+"/rest/v1/ai_knowledge?id=neq.0", {method:"DELETE",headers:h});
+      for (let i=0; i<rows.length; i+=50) {
+        const h2 = _h(); h2["Prefer"] = "return=minimal";
+        await fetch(SUPABASE_URL+"/rest/v1/ai_knowledge", {method:"POST",headers:h2,body:JSON.stringify(rows.slice(i,i+50))});
+      }
+      toast("✅ 知识库已更新（"+rows.length+"条），刷新后生效");
+      location.reload();
+    } catch(err) { toast("❌ " + err.message); }
+  };
+  reader.readAsBinaryString(file);
+});
+
+
+// ═══════════ BOOT ═══════════
+(async function() {
+  let token = localStorage.getItem('sb-access-token');
+  if (!token) { window.location.href = 'index.html'; return; }
+  // 尝试刷新 token（如已过期）
+  const rt = localStorage.getItem('sb-refresh-token');
+  if (rt) {
+    try {
+      const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+        method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+        body:JSON.stringify({refresh_token:rt})
+      });
+      if (r.ok) {
+        const d = await r.json();
+        localStorage.setItem('sb-access-token', d.access_token);
+        localStorage.setItem('sb-refresh-token', d.refresh_token);
+        localStorage.setItem('sb-user', JSON.stringify(d.user));
+      }
+    } catch(e) {}
+  }
+  try { init(); } catch(e) { alert('启动失败: '+e.message); }
+})();
+</script>
+</body>
+</html>
