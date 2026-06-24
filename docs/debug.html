@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>诊断</title></head>
+<body style="font-family:sans-serif;padding:20px;line-height:1.8">
+<h2>Supabase 连接诊断</h2>
+<div id="out"></div>
+<script>
+const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
+
+async function run() {
+  const out = document.getElementById('out');
+  function log(msg, ok) { out.innerHTML += '<div style="color:'+(ok?'green':'red')+'">'+(ok?'✅ ':'❌ ')+msg+'</div>'; }
+
+  // 1. 检查 token
+  const token = localStorage.getItem('sb-access-token');
+  log('Token 是否存在: ' + (token ? token.substring(0,20)+'...' : '无'), !!token);
+
+  if (!token) { log('请先登录后再打开此页面', false); return; }
+
+  // 2. 检查 localStorage 用户
+  const user = JSON.parse(localStorage.getItem('sb-user')||'{}');
+  log('用户 ID: ' + (user.id || '无'), !!user.id);
+
+  // 3. 测试 profiles 查询
+  try {
+    const r1 = await fetch(SUPABASE_URL+'/rest/v1/profiles?select=id,is_approved&id=eq.'+user.id, {
+      headers: {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token}
+    });
+    const d1 = await r1.json();
+    log('profiles 查询: ' + (d1?.length ? d1[0].is_approved ? '已批准' : '未批准' : '无结果'), r1.ok && d1?.length);
+  } catch(e) { log('profiles 异常: '+e.message, false); }
+
+  // 4. 测试 benchmark_items 查询
+  try {
+    const r2 = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?select=id&limit=1', {
+      headers: {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token}
+    });
+    const d2 = await r2.json();
+    log('benchmark_items 查询: ' + (Array.isArray(d2) ? '返回数组,长度='+d2.length : JSON.stringify(d2)), r2.ok && Array.isArray(d2));
+  } catch(e) { log('benchmark_items 异常: '+e.message, false); }
+
+  // 5. 测试获取总数
+  try {
+    const r3 = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?select=count', {
+      headers: {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'count=exact'}
+    });
+    const count = r3.headers.get('content-range')?.split('/')[1] || '?';
+    log('benchmark_items 总数: ' + count, count > 0);
+  } catch(e) { log('benchmark_items 计数异常: '+e.message, false); }
+}
+
+run();
+</script>
+</body>
+</html>

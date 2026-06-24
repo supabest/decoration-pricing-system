@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>装修成本分析系统 - 套价工具</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f0f5fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font-size:13px;min-height:100vh;line-height:1.5}
+:root{--bg:#f0f5fa;--bg2:#fff;--bg3:#f7fafd;--bg4:#eaf1f8;--border:#c8d8e8;--bdr2:#a0bcce;
+  --acc:#1d6fa5;--acc2:#155d8e;--acc-d:rgba(29,111,165,.10);
+  --grn:#0b7b50;--grn-d:rgba(11,123,80,.10);--yel:#b07000;--yel-d:rgba(176,112,0,.10);
+  --red:#b93232;--red-d:rgba(185,50,50,.10);--tx:#1a2d3d;--tx2:#3a5470;--tx3:#6e8fa8;
+  --shadow:0 1px 5px rgba(20,50,80,.10);--mono:'JetBrains Mono',monospace;--sans:'Noto Sans SC',sans-serif}
+.hdr{background:var(--bg2);border-bottom:2px solid var(--border);height:52px;padding:0 22px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.hdr-title{font-size:15px;font-weight:700;color:var(--tx)}
+.hdr-sub{font-size:11px;color:var(--tx3);margin-left:3px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1.5px solid var(--border);
+  background:var(--bg2);color:var(--tx2);font-size:12px;font-family:var(--sans);cursor:pointer;transition:all .12s;white-space:nowrap;box-shadow:var(--shadow)}
+.btn:hover{border-color:var(--bdr2);color:var(--tx);background:var(--bg4)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn-pri:hover{background:var(--acc2);border-color:var(--acc2);color:#fff}
+.btn-suc{background:var(--grn-d);border-color:var(--grn);color:var(--grn);font-weight:600}
+.btn-del{background:var(--red-d);border-color:var(--red);color:var(--red);padding:3px 8px;font-size:11px}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--tx3);box-shadow:none}
+.modal-ov{position:fixed;inset:0;background:rgba(20,40,60,.40);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+.modal{background:var(--bg2);border:2px solid var(--border);border-radius:12px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(20,50,80,.15)}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-ttl{font-size:14px;font-weight:700;color:var(--tx)}
+.modal-x{background:none;border:none;color:var(--tx3);font-size:20px;cursor:pointer;padding:0 4px;line-height:1}
+.modal-x:hover{color:var(--tx)}
+.hidden{display:none!important}
+.toast{position:fixed;bottom:22px;right:22px;background:#1a2d3d;border-radius:8px;padding:10px 18px;font-size:12px;color:#fff;
+  z-index:400;box-shadow:0 4px 20px rgba(20,50,80,.18);animation:tin .2s ease;pointer-events:none}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- ═══════ 加载中 ═══════ -->
+<div id="loadScreen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:12px">
+  <div style="font-size:32px">⏳</div>
+  <div style="color:#888;font-size:14px">加载中...</div>
+</div>
+
+<!-- ═══════ 主应用 ═══════ -->
+<div id="appMain" class="hidden"></div>
+
+<input type="file" id="fileIn" accept=".xlsx,.xls" style="display:none">
+<input type="file" id="benchFileIn" accept=".xlsx,.xls" style="display:none">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>var APP_VER = 2; // 强制刷新缓存
+// ═══════════ SUPABASE CLIENT ═══════════
+const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
+
+const SB = {
+  _token: localStorage.getItem('sb-access-token'),
+  _headers() {
+    const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY};
+    if (this._token) h['Authorization'] = 'Bearer ' + this._token;
+    return h;
+  },
+  async get(table, params={}) {
+    const q = new URLSearchParams(); q.set('select', params.select || '*');
+    if (params.eq) q.set(params.eq.col, 'eq.'+encodeURIComponent(params.eq.val));
+    if (params.order) q.set('order', params.order.col+(params.order.asc?'.asc':'.desc'));
+    if (params.limit) q.set('limit', ''+params.limit);
+    const ac = new AbortController(); const tm = setTimeout(() => ac.abort(), 8000);
+    try { const r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+q, {headers: this._headers(), signal: ac.signal}); clearTimeout(tm);
+      const d = await r.json(); if (!r.ok) throw new Error(d.message||'查询失败'); return d;
+    } catch(e) { clearTimeout(tm); throw new Error('请求超时或失败'); }
+  },
+  async post(table, body) {
+    const h = this._headers(); h['Prefer'] = 'return=minimal';
+    const r = await fetch(SUPABASE_URL+'/rest/v1/'+table, {method:'POST',headers:h,body:JSON.stringify(body)});
+    if (!r.ok) { const e=await r.json().catch(()=>({})); throw new Error(e.message||'写入失败'); }
+  },
+  async delete(table, notCol, notVal) {
+    const h = this._headers(); h['Prefer'] = 'return=minimal';
+    const r = await fetch(SUPABASE_URL+'/rest/v1/'+table+'?'+notCol+'=neq.'+encodeURIComponent(notVal), {method:'DELETE',headers:h});
+    if (!r.ok) { const e=await r.json().catch(()=>({})); throw new Error(e.message||'删除失败'); }
+  }
+};
+
+// ═══════════ BOOT ═══════════
+(async function() {
+  const token = localStorage.getItem('sb-access-token');
+  const user  = JSON.parse(localStorage.getItem('sb-user')||'{}');
+  if (!token || !user.id) { window.location.href = 'index.html'; return; }
+
+  // 校验 token 并获取 profile
+  let profile, dbData;
+  try {
+    const list = await SB.get('profiles', {eq:{col:'id',val:user.id}});
+    profile = list[0];
+    if (!profile || !profile.is_approved) { window.location.href = 'index.html'; return; }
+    // 加载基准价数据
+    dbData = await SB.get('benchmark_items', {order:{col:'trade_team',asc:true}});
+  } catch(e) {
+    // token 过期，尝试刷新
+    const rt = localStorage.getItem('sb-refresh-token');
+    if (rt) {
+      const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+        method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+        body:JSON.stringify({refresh_token:rt})
+      });
+      if (r.ok) { const d=await r.json(); SB._token=d.access_token; localStorage.setItem('sb-access-token',d.access_token);
+        localStorage.setItem('sb-refresh-token',d.refresh_token); window.location.reload(); return; }
+    }
+    window.location.href = 'index.html'; return;
+  }
+
+  // 加载套价工具
+  await loadApp(profile, dbData||[]);
+})();
+
+// ═══════════ LOAD PRICING TOOL ═══════════
+async function loadApp(profile, dbData) {
+  document.getElementById('loadScreen').classList.add('hidden');
+  const main = document.getElementById('appMain');
+  main.classList.remove('hidden');
+
+  // 构建基准价DB
+  const DB = {};
+  dbData.forEach(it => {
+    if (!DB[it.trade_team]) DB[it.trade_team] = [];
+    DB[it.trade_team].push({
+      id: it.internal_code, trade: it.work_type||'', name: it.item_name,
+      spec: it.spec||'', unit: it.unit, price: parseFloat(it.unit_price), remark: it.remark||''
+    });
+  });
+
+  // 构建 ALL 数组
+  const ALL = [];
+  Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
+  const SHEETS = Object.keys(DB);
+
+  // ── 渲染 Header ──
+  main.innerHTML = `
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:18px">🏗️</span>
+    <span class="hdr-title">装修成本分析系统</span>
+    <span class="hdr-sub">套价工具</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="userBadge" style="font-size:12px;color:var(--tx2);padding:2px 8px;border-radius:4px;border:1px solid var(--border)">${profile.display_name||profile.username}</span>
+    <button class="btn btn-sm" onclick="doLogout()" style="color:var(--red);border-color:var(--red)">退出</button>
+  </div>
+</div>
+<div style="padding:40px;text-align:center">
+  <div style="font-size:64px;margin-bottom:16px">🏗️</div>
+  <h2 style="font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:8px">装修成本分析系统</h2>
+  <p style="color:#888;margin-bottom:20px">基准价库 ${dbData.length} 条 · ${SHEETS.length} 个班组</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <button class="btn btn-pri" onclick="openNewProject()">📋 新建套价方案</button>
+    <button class="btn" onclick="openProjectHistory()" style="color:var(--grn);border-color:var(--grn)">📂 历史方案</button>
+    ${profile.is_admin ? `<button class="btn" onclick="openDataManager()" style="color:var(--acc);border-color:var(--acc)">📊 数据管理</button>` : ''}
+  </div>
+</div>`;
+
+  // ── Admin: 数据管理弹窗 ──
+  if (profile.is_admin) {
+    const dm = document.createElement('div');
+    dm.id = 'dataMod'; dm.className = 'modal-ov hidden';
+    dm.innerHTML = `
+<div class="modal" style="width:480px">
+  <div class="modal-hdr"><span class="modal-ttl">📊 数据管理</span><button class="modal-x" onclick="closeDataManager()">×</button></div>
+  <div style="padding:16px 20px">
+    <div style="font-weight:600;color:var(--tx);margin-bottom:8px">🔄 更新基准价库</div>
+    <p style="font-size:12px;color:var(--tx3);margin-bottom:12px;line-height:1.7">上传新的 Excel 文件将替换全部现有数据，所有用户立即看到最新版。</p>
+    <button class="btn btn-pri" onclick="document.getElementById('benchFileIn').click()">📁 选择 Excel 文件上传</button>
+    <div id="uploadStatus" style="margin-top:10px;font-size:12px;color:var(--tx3)"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-weight:600;color:var(--tx);margin-bottom:6px">当前数据</div>
+      <div id="dataStatus" style="font-size:12px;color:var(--tx3)"></div>
+    </div>
+  </div>
+</div>`;
+    document.body.appendChild(dm);
+    showDataStatus();
+  }
+}
+
+function openDataManager() { document.getElementById('dataMod').classList.remove('hidden'); }
+function closeDataManager() { document.getElementById('dataMod').classList.add('hidden'); }
+
+async function showDataStatus() {
+  try {
+    const data = await SB.get('benchmark_items', {order:{col:'trade_team',asc:true}});
+    const teams = {};
+    data.forEach(it => { teams[it.trade_team] = (teams[it.trade_team]||0)+1; });
+    document.getElementById('dataStatus').innerHTML = Object.entries(teams)
+      .map(([t,c]) => '<div>'+t+': <b>'+c+'</b> 条</div>').join('') + '<div style="margin-top:4px;color:var(--tx)">合计: <b>'+data.length+'</b> 条</div>';
+  } catch(e) { document.getElementById('dataStatus').textContent = '加载失败'; }
+}
+
+// ── Admin: 上传基准价 → 同步 Supabase ──
+document.getElementById('benchFileIn').addEventListener('change', async function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  const status = document.getElementById('uploadStatus');
+  status.innerHTML = '⏳ 解析文件中...';
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      if (!wb.SheetNames.length) { status.innerHTML = '❌ 文件为空'; return; }
+      status.innerHTML = '⏳ 解析中，共 '+wb.SheetNames.length+' 个表...';
+      const allRows = [];
+      let sheetLog = [];
+
+      wb.SheetNames.forEach(sn => {
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1});
+        if (!aoa || aoa.length < 3) return;
+
+        // 找表头行：包含"内部编号"和"单价"的行
+        let hdrRi = -1, cols = {};
+        for (let ri = 0; ri < Math.min(15, aoa.length); ri++) {
+          const r = aoa[ri];
+          if (!r) continue;
+          const txt = r.map(c=>String(c??'')).join('|');
+          if (!txt.includes('内部编号') || !txt.includes('单价')) continue;
+          hdrRi = ri;
+          r.forEach((c, ci) => {
+            const s = String(c??'').replace(/[\s　]/g, '');
+            if (s.includes('内部编号')) cols.id = ci;
+            if (s.includes('项目名称')) cols.name = ci;
+            if (s.includes('项目特征')) cols.spec = ci;
+            if (/^单位$/.test(s)) cols.unit = ci;
+            if (s.includes('单价')) cols.price = ci;
+            if (s.includes('工种')) cols.trade = ci;
+            if (s.includes('备注')) cols.remark = ci;
+          });
+          break;
+        }
+        if (hdrRi < 0 || cols.id === undefined || cols.price === undefined) {
+          sheetLog.push(sn+': 未找到表头');
+          return;
+        }
+
+        const team = sn.replace(/^\d+[、\s]*/, '');
+        let cnt = 0;
+        for (let ri = hdrRi + 1; ri < aoa.length; ri++) {
+          const r = aoa[ri];
+          if (!r) continue;
+          const id = String(r[cols.id]??'').trim();
+          if (!id || /^[一二三四五六七八九十]/.test(id)) continue;
+          const price = parseFloat(r[cols.price]);
+          if (isNaN(price)) continue;
+          allRows.push({
+            trade_team: team, internal_code: id,
+            work_type: cols.trade!==undefined ? String(r[cols.trade]??'').trim() : '',
+            item_name: cols.name!==undefined ? String(r[cols.name]??'').trim() : '',
+            spec: cols.spec!==undefined ? String(r[cols.spec]??'').trim() : '',
+            unit: cols.unit!==undefined ? String(r[cols.unit]??'').trim() : '',
+            unit_price: price,
+            remark: cols.remark!==undefined ? String(r[cols.remark]??'').trim() : ''
+          });
+          cnt++;
+        }
+        sheetLog.push(sn+': '+cnt+' 条');
+        status.innerHTML = '⏳ '+sheetLog.join(' | ');
+      });
+
+      if (!allRows.length) {
+        const first = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+        status.innerHTML = '❌ 无数据。首个表前3行：'+JSON.stringify(first?.slice(0,3));
+        return;
+      }
+      status.innerHTML = '⏳ 解析完成('+allRows.length+'条)，写入数据库...';
+
+      // 清空旧数据
+      await SB.delete('benchmark_items', 'id', 0).catch(()=>{});
+
+      // 分批写入
+      for (let i=0; i<allRows.length; i+=50) {
+        await SB.post('benchmark_items', allRows.slice(i,i+50));
+      }
+      status.innerHTML = '✅ 更新完成！共 '+allRows.length+' 条数据已同步到云端。';
+      setTimeout(() => { document.getElementById('dataMod').classList.add('hidden'); window.location.reload(); }, 800);
+    } catch(err) { status.innerHTML = '❌ 失败：'+err.message; }
+  };
+  reader.readAsBinaryString(file);
+});
+
+// ═══════════ LOGOUT ═══════════
+// ═══════════ PROJECT MANAGEMENT ═══════════
+function openNewProject() {
+  const name = prompt('请输入方案名称：', '新方案_' + new Date().toISOString().slice(0,10));
+  if (!name) return;
+  // 创建空白方案，进入编辑
+  const projectId = Date.now();
+  localStorage.setItem('editingProject', JSON.stringify({id:projectId, name, groups:[], globalCoef:1, projTeam:'', projDate:'', hourlyRate:350}));
+  window.location.href = 'tool.html'?project=' + projectId;
+}
+
+async function openProjectHistory() {
+  if (!document.getElementById('histMod')) {
+    const div = document.createElement('div');
+    div.id = 'histMod'; div.className = 'modal-ov hidden';
+    div.innerHTML = `
+<div class="modal" style="width:540px;max-height:75vh">
+  <div class="modal-hdr"><span class="modal-ttl">📂 历史方案</span><button class="modal-x" onclick="closeHistory()">×</button></div>
+  <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;color:var(--tx3)">
+    保存在云端，按时间倒序。点击 <b>恢复</b> 可加载完整方案。
+  </div>
+  <div id="histList" style="overflow-y:auto;padding:8px;max-height:calc(75vh - 100px)"></div>
+</div>`;
+    document.body.appendChild(div);
+  }
+  document.getElementById('histMod').classList.remove('hidden');
+  await renderProjectList();
+}
+function closeHistory() {
+  document.getElementById('histMod')?.classList.add('hidden');
+}
+
+async function renderProjectList() {
+  const el = document.getElementById('histList');
+  const userId = (JSON.parse(localStorage.getItem('sb-user')||'{}')||{}).id;
+  if (!userId) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx3);font-size:13px">请先登录</div>'; return; }
+  try {
+    const data = await SB.get('projects', {eq:{col:'user_id',val:userId}, order:{col:'created_at',asc:false}, limit:50});
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--tx3);font-size:13px">暂无保存的方案</div>'; return;
+    }
+    el.innerHTML = data.map(p => `
+      <div style="padding:10px 14px;border-radius:7px;border:1.5px solid var(--border);margin-bottom:6px;background:var(--bg2)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:13px;font-weight:600;color:var(--tx);flex:1">📋 ${esc(p.name)}</span>
+          <span style="font-size:10px;color:var(--tx3)">${new Date(p.created_at).toLocaleString('zh-CN')}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:11px;color:var(--tx2)">
+          <span>清单 ${p.row_count||0} 条</span>
+          <span>已套价 ${p.priced_count||0} 条</span>
+          <span>系数 ×${parseFloat(p.global_coef||1).toFixed(2)}</span>
+          <button class="btn btn-sm btn-pri" onclick="restoreProject(${p.id})" style="margin-left:auto">恢复</button>
+          <button class="btn btn-sm btn-del" onclick="deleteProject(${p.id})">删除</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">加载失败：'+e.message+'</div>';
+  }
+}
+
+async function saveProjectToDb(name, groups, coef, team, date, hourly) {
+  const userId = (JSON.parse(localStorage.getItem('sb-user')||'{}')||{}).id;
+  if (!userId) { alert('请先登录'); return; }
+  const allRows = groups ? groups.flatMap(g=>g.sections?.flatMap(s=>s.rows)||[]) : [];
+  const payload = {
+    user_id: userId, name: name || '未命名方案',
+    global_coef: coef||1, proj_team: team||'', proj_date: date||'',
+    hourly_rate: hourly||350,
+    groups_json: JSON.parse(JSON.stringify(groups||[])),
+    row_count: allRows.length,
+    priced_count: allRows.filter(r=>r.subs?.length>0).length
+  };
+  // 同名覆盖
+  const exist = await SB.get('projects', {eq:{col:'user_id',val:userId}, select:'id,name', limit:100});
+  const dup = exist?.find(p => p.name === payload.name);
+  if (dup) {
+    if (!confirm('已存在同名方案「'+payload.name+'」，是否覆盖？')) return;
+    const h = SB._headers(); h['Prefer'] = 'return=minimal';
+    await fetch(SUPABASE_URL+'/rest/v1/projects?id=eq.'+dup.id, {method:'PATCH',headers:h,body:JSON.stringify(payload)});
+    toast('✓ 方案已覆盖：'+payload.name);
+  } else {
+    await SB.post('projects', payload);
+    toast('✓ 方案已保存：'+payload.name);
+  }
+}
+
+async function restoreProject(id) {
+  try {
+    const data = await SB.get('projects', {eq:{col:'id',val:id}});
+    const p = data?.[0];
+    if (!p) { alert('方案不存在'); return; }
+    // 存入 localStorage 并跳转到编辑器
+    localStorage.setItem('editingProject', JSON.stringify({
+      id: p.id, name: p.name, groups: p.groups_json,
+      globalCoef: parseFloat(p.global_coef||1), projTeam: p.proj_team||'',
+      projDate: p.proj_date||'', hourlyRate: parseFloat(p.hourly_rate||350)
+    }));
+    window.location.href = 'tool.html'?project=' + p.id;
+  } catch(e) { alert('恢复失败：'+e.message); }
+}
+
+async function deleteProject(id) {
+  if (!confirm('确认删除此方案？')) return;
+  const h = SB._headers(); h['Prefer'] = 'return=minimal';
+  await fetch(SUPABASE_URL+'/rest/v1/projects?id=eq.'+id, {method:'DELETE',headers:h});
+  toast('已删除');
+  renderProjectList();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let toastTimer;
+function toast(msg) {
+  document.querySelector('.toast')?.remove();
+  if (toastTimer) clearTimeout(toastTimer);
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  toastTimer = setTimeout(() => t.remove(), 3000);
+}
+
+function doLogout() {
+  fetch(SUPABASE_URL+'/auth/v1/logout', {method:'POST',headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+(localStorage.getItem('sb-access-token')||'')}}).catch(()=>{});
+  localStorage.removeItem('sb-access-token'); localStorage.removeItem('sb-refresh-token'); localStorage.removeItem('sb-user');
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>
