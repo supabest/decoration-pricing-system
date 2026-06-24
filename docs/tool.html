@@ -1614,43 +1614,6 @@ async function deleteProject(id) {
 }
 
 // ═══════════ AI 知识库上传 ═══════════
-document.getElementById('knowledgeFileIn')?.addEventListener("change", async function(e) {
-  const file = e.target.files[0]; if (!file) return; e.target.value = "";
-  if (!confirm("上传Excel将替换全部现有知识库数据，确认？")) return;
-  const reader = new FileReader();
-  reader.onload = async ev => {
-    try {
-      const wb = XLSX.read(ev.target.result, {type:"binary"});
-      const rows = []; let catMap = {};
-      wb.SheetNames.forEach(sn => {
-        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1});
-        const hdr = aoa[0]; if (!hdr) return;
-        const ci = {}; hdr.forEach((h,i) => { const s = String(h||"").replace(/[\s　]/g,""); if(s.includes("分类")||s.includes("类别")) ci.cat=i; if(s.includes("关键词")||s.includes("写法")||s.includes("特征")) ci.key=i; if(s.includes("描述")||s.includes("技巧")||s.includes("标准名称")||s.includes("规则")||s.includes("判断")) ci.con=i; if(s.includes("班组")||s.includes("适用")) ci.team=i; });
-        if (ci.key===undefined || ci.con===undefined) return;
-        for (let i=1; i<aoa.length; i++) {
-          const r = aoa[i]; if (!r) continue;
-          const key = String(r[ci.key]||"").trim(); if (!key) continue;
-          const con = String(r[ci.con]||"").trim(); if (!con) continue;
-          const cat = ci.cat!==undefined ? String(r[ci.cat]||"").trim() : sn.replace(/[\s　]/g,"");
-          const team = ci.team!==undefined ? String(r[ci.team]||"").trim() : "";
-          rows.push({category:cat, keyword:key, content:con, team});
-        }
-      });
-      if (!rows.length) { toast("❌ 未识别到有效数据"); return; }
-      toast("⏳ 写入 " + rows.length + " 条...");
-      const h = _h(); h["Prefer"] = "return=minimal";
-      await fetch(SUPABASE_URL+"/rest/v1/ai_knowledge?id=neq.0", {method:"DELETE",headers:h});
-      for (let i=0; i<rows.length; i+=50) {
-        const h2 = _h(); h2["Prefer"] = "return=minimal";
-        await fetch(SUPABASE_URL+"/rest/v1/ai_knowledge", {method:"POST",headers:h2,body:JSON.stringify(rows.slice(i,i+50))});
-      }
-      toast("✅ 知识库已更新（"+rows.length+"条），刷新后生效");
-      location.reload();
-    } catch(err) { toast("❌ " + err.message); }
-  };
-  reader.readAsBinaryString(file);
-});
-
 
 
 // ═══════════ BOOT ═══════════
@@ -1677,6 +1640,5 @@ document.getElementById('knowledgeFileIn')?.addEventListener("change", async fun
 })();
 </script>
 
--->
 </body>
 </html>
