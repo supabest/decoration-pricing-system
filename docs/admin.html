@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理面板 - 装修成本分析系统</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font-size:14px}
+.hdr{background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-title{font-size:15px;font-weight:700;color:#1a1a2e}
+.content{max-width:800px;margin:0 auto;padding:24px}
+.section{margin-bottom:28px}
+.section h3{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.card{background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:10px 14px;margin-bottom:4px;transition:background .12s}
+.card:hover{background:#f7fafd}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.name{font-weight:600;font-size:13px;color:#1a2d3d}
+.email{font-size:12px;color:#6e8fa8}
+.date{font-size:11px;color:#6e8fa8;margin-left:auto}
+.badge{padding:1px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-admin{background:#e6f7ff;color:#1d6fa5}
+.badge-ok{background:#f6ffed;color:#0b7b50}
+.badge-wait{background:#fffbe6;color:#b07000}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:6px;border:1px solid #d9d9d9;background:#fff;color:#555;font-size:12px;cursor:pointer;transition:all .12s;text-decoration:none;font-family:inherit}
+.btn:hover{border-color:#a0bcce;color:#333;background:#f0f5fa}
+.btn-sm{padding:3px 10px;font-size:11px}
+.btn-suc{background:#f6ffed;border-color:#0b7b50;color:#0b7b50;font-weight:600}
+.btn-suc:hover{background:#e8f8e0}
+.empty{text-align:center;padding:24px;color:#888;font-size:13px}
+.hidden{display:none!important}
+#msg{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;display:none}
+#msg.err{background:#fff2f0;border:1px solid #ffccc7;color:#cf1322;display:block}
+#msg.ok{background:#f6ffed;border:1px solid #b7eb8f;color:#389e0d;display:block}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <span class="hdr-title">⚙ 管理面板 · 装修成本分析系统</span>
+  <div style="display:flex;gap:10px;align-items:center">
+    <span id="userLabel" style="font-size:12px;color:#888"></span>
+    <a href="tool.html" class="btn btn-sm" style="color:#0b7b50;border-color:#0b7b50;text-decoration:none">← 返回套价工具</a>
+  </div>
+</div>
+
+<div id="loadMsg" style="text-align:center;padding:60px;color:#888;font-size:15px">⏳ 加载中...</div>
+
+<div id="content" class="content hidden">
+  <div id="msg"></div>
+
+  <div class="section">
+    <h3>👥 待审批用户 <span id="pendingCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+    <div id="pendingUsers"></div>
+  </div>
+
+  <div class="section">
+    <h3>👤 全部用户</h3>
+    <div id="allUsers"></div>
+  </div>
+
+  <div class="section">
+    <h3>📊 待补充基准价 <span id="unmatchedCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+    <div id="unmatchedItems" style="font-size:12px;color:#888"></div>
+  </div>
+
+  <div class="section">
+    <h3>💬 意见反馈 <span id="fbCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+    <div id="feedbackItems" style="font-size:12px;color:#888"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function load() {
+  const token = localStorage.getItem('sb-access-token');
+  const user = JSON.parse(localStorage.getItem('sb-user')||'{}');
+  if (!token) { showMsg('请先登录', true); return; }
+
+  document.getElementById('userLabel').textContent = user.email || user.id || '';
+
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
+  const g = async (url) => { const r=await fetch(url,{headers:h}); if(!r.ok)throw new Error(await r.text()); return r.json(); };
+  const p = async (url,body) => { await fetch(url,{method:'PATCH',headers:{...h,'Prefer':'return=minimal'},body:JSON.stringify(body)}); };
+
+  try {
+    // 待审批用户
+    const pending = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&is_approved=eq.false&order=created_at.asc');
+    document.getElementById('pendingCount').textContent = '（'+pending.length+'）';
+    if (!pending.length) document.getElementById('pendingUsers').innerHTML = '<div class="empty">暂无</div>';
+    else document.getElementById('pendingUsers').innerHTML = pending.map(u =>
+      '<div class="card"><div class="row"><span class="name">'+esc(u.display_name||u.username)+'</span><span class="email">'+esc(u.username)+'</span><span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span><button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">✅ 批准</button></div></div>'
+    ).join('');
+
+    // 全部用户
+    const all = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&order=created_at.desc');
+    document.getElementById('allUsers').innerHTML = all.map(u =>
+      '<div class="card"><div class="row"><span class="name">'+esc(u.display_name||u.username)+'</span><span class="email">'+esc(u.username)+'</span>'+
+      '<span class="badge '+(u.is_admin?'badge-admin':u.is_approved?'badge-ok':'badge-wait')+'">'+(u.is_admin?'管理员':u.is_approved?'已批准':'待审批')+'</span>'+
+      '<span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span>'+
+      (!u.is_approved&&!u.is_admin?'<button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">批准</button>':'')+
+      (u.is_approved&&!u.is_admin?'<button class="btn btn-sm" onclick="setAdmin(\''+u.id+'\')" style="color:var(--acc)">设为管理员</button>':'')+
+      '</div></div>'
+    ).join('');
+
+    // 待补充基准价
+    const projects = await g(SUPABASE_URL+'/rest/v1/projects?select=groups_json&limit=200').catch(()=>[]);
+    const counter = {};
+    projects.forEach(p => { const g=p.groups_json; g?.forEach(gr=>{gr.sections?.forEach(s=>{s.rows?.forEach(r=>{if(!r.subs||!r.subs.length){const k=(r.name||'')+'|'+(r.unit||'');if(!counter[k])counter[k]={name:r.name,unit:r.unit||'',count:0};counter[k].count++}})})})});
+    const items = Object.values(counter).sort((a,b)=>b.count-a.count);
+    document.getElementById('unmatchedCount').textContent = '（'+items.length+'项）';
+    document.getElementById('unmatchedItems').innerHTML = !items.length ? '🎉 全部已匹配' : items.slice(0,100).map(it =>
+      '<div style="padding:3px 0;display:flex;gap:6px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="background:#fff2f0;color:#cf1322;padding:0 6px;border-radius:3px;font-size:11px;font-weight:600">'+it.count+'次</span><span>'+esc(it.name)+'</span><span style="color:#888;font-size:11px">'+esc(it.unit)+'</span></div>'
+    ).join('');
+
+    // 意见反馈
+    const fb = await g(SUPABASE_URL+'/rest/v1/feedback?select=*&order=created_at.desc&limit=200');
+    document.getElementById('fbCount').textContent = '（'+fb.length+'条）';
+    document.getElementById('feedbackItems').innerHTML = !fb.length ? '暂无' : fb.map(f =>
+      '<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:12px">'+
+      '<span style="background:#e6f7ff;color:#1d6fa5;padding:0 5px;border-radius:3px;font-size:11px">'+esc(f.fb_type)+'</span>'+
+      '<span style="color:#888;font-size:11px;margin-left:4px">'+new Date(f.created_at).toLocaleString('zh-CN')+'</span>'+
+      '<div style="margin-top:2px">'+esc(f.fb_desc)+'</div></div>'
+    ).join('');
+
+    document.getElementById('loadMsg').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+  } catch(e) {
+    if (e.message.includes('JWT')) {
+      localStorage.removeItem('sb-access-token');
+      showMsg('Token已过期，请重新登录', true);
+    } else {
+      showMsg('加载失败：'+e.message.substring(0,80), true);
+    }
+  }
+}
+
+function showMsg(msg, isErr) {
+  const el = document.getElementById('msg');
+  el.textContent = msg; el.className = isErr ? 'err' : 'ok';
+  document.getElementById('loadMsg').classList.add('hidden');
+  document.getElementById('content').classList.add('hidden');
+}
+
+async function approve(id) {
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({is_approved:true,approved_at:new Date().toISOString()})});
+  load();
+}
+async function setAdmin(id) {
+  if (!confirm('设为管理员？')) return;
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({is_admin:true,is_approved:true})});
+  load();
+}
+
+load();
+</script>
+</body>
+</html>
