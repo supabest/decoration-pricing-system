@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getChineseErrorMessage } from '../lib/authErrors'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -18,7 +19,7 @@ export default function LoginPage() {
       await login(email, password)
       navigate('/')
     } catch (err: any) {
-      setError(err.message || '登录失败')
+      setError(getChineseErrorMessage(err))
     } finally {
       setLoading(false)
     }
