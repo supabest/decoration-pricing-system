@@ -489,13 +489,6 @@ function init() {
       Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
       SHEETS = Object.keys(DB);
     }
-    if (!hasSb) {
-      // 无云端数据，使用嵌入数据
-      DB = JSON.parse(JSON.stringify(DB_EMBEDDED));
-      ALL = [];
-      Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
-      SHEETS = Object.keys(DB);
-    }
     // 构建侧栏
     const tabs = document.getElementById('ftabs');
     SHEETS.forEach(sh => {
