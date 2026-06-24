@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getChineseErrorMessage } from '../lib/authErrors'
 
 export default function RegisterPage() {
   const { register } = useAuth()
@@ -28,7 +29,7 @@ export default function RegisterPage() {
       await register(email, password, displayName || undefined)
       navigate('/')
     } catch (err: any) {
-      setError(err.message || '注册失败')
+      setError(getChineseErrorMessage(err))
     } finally {
       setLoading(false)
     }
