@@ -161,6 +161,81 @@ async function setAdmin(id) {
   load();
 }
 
+// ═══════════ AI 知识库管理 ═══════════
+async function loadKnowledge() {
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
+  const r = await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?select=*&order=category.asc',{headers:h});
+  const data = await r.json();
+  if (!Array.isArray(data) || !data.length) {
+    document.getElementById('knowledgeItems').innerHTML = '<div style="color:#888;padding:8px">暂无知识，点击上方"新增"添加</div>';
+    return;
+  }
+  document.getElementById('knowledgeItems').innerHTML = data.map(k =>
+    '<div class="card" id="k'+k.id+'">'+
+    '<div class="row" style="gap:4px">'+
+    '<span class="badge badge-ok" style="font-size:10px">'+esc(k.category)+'</span>'+
+    '<span style="font-weight:600;font-size:12px;flex:1">'+esc(k.keyword)+'</span>'+
+    '<span style="color:#888;font-size:11px">'+esc(k.team||'')+'</span>'+
+    '</div>'+
+    '<div style="font-size:12px;color:#555;margin:2px 0 4px">'+esc(k.content)+'</div>'+
+    '<div style="display:flex;gap:4px">'+
+    '<button class="btn btn-sm" onclick="editKnowledge('+k.id+')" style="color:var(--acc);padding:2px 8px;font-size:10px">✏️ 编辑</button>'+
+    '<button class="btn btn-sm" onclick="delKnowledge('+k.id+')" style="color:var(--red);padding:2px 8px;font-size:10px">🗑 删除</button>'+
+    '</div></div>'
+  ).join('');
+}
+
+async function addKnowledge() {
+  const cat = prompt('分类（技巧/同义词/特征规则）：');
+  if (!cat) return;
+  const key = prompt('关键词：');
+  if (!key) return;
+  const con = prompt('内容描述：');
+  if (!con) return;
+  const team = prompt('适用班组（选填）：') || '';
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge',{method:'POST',headers:h,body:JSON.stringify([{category:cat,keyword:key,content:con,team:team}])});
+  loadKnowledge();
+}
+
+async function editKnowledge(id) {
+  const el = document.getElementById('k'+id);
+  if (!el) return;
+  const cat = prompt('分类：', el.querySelector('.badge')?.textContent || '');
+  if (!cat) return;
+  const key = prompt('关键词：', el.querySelector('[style*="font-weight:600"]')?.textContent || '');
+  if (!key) return;
+  // Find the content div (there's a specific structure)
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  // We need the current content and team — fetch from server
+  const r = await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?select=content,team&id=eq.'+id,{headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token}});
+  const cur = await r.json();
+  const curItem = Array.isArray(cur) && cur[0] ? cur[0] : {content:'',team:''};
+  const con = prompt('内容描述：', curItem.content||'');
+  if (!con) return;
+  const team = prompt('适用班组（选填）：', curItem.team||'') || '';
+  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({category:cat,keyword:key,content:con,team:team})});
+  loadKnowledge();
+}
+
+async function delKnowledge(id) {
+  if (!confirm('确认删除此知识条目？')) return;
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=eq.'+id,{method:'DELETE',headers:h});
+  loadKnowledge();
+}
+
+// 在 load() 中增加知识库加载
+const origLoad = load;
+load = async function() {
+  await origLoad();
+  if (document.getElementById('knowledgeItems')) loadKnowledge();
+};
+
 load();
 </script>
 </body>
