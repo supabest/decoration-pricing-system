@@ -289,3 +289,140 @@ export const benchmark = {
     return data
   },
 }
+
+// ================================================
+// Projects — 历史方案（管理员查看）
+// ================================================
+
+export interface ProjectInfo {
+  id: number
+  user_id: string
+  name: string
+  global_coef: number
+  proj_team: string | null
+  proj_date: string | null
+  hourly_rate: number
+  groups_json: any
+  row_count: number
+  priced_count: number
+  is_shared: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UnpricedItem {
+  /** 归一化后的名称（模糊匹配用） */
+  normalizedName: string
+  /** 出现的次数 */
+  count: number
+  /** 原始名称示例列表 */
+  examples: string[]
+  /** 涉及的项目 */
+  projects: { projectId: number; projectName: string; rowName: string }[]
+  /** 可能的单位 */
+  units: string[]
+}
+
+export const projects = {
+  /** 获取所有历史方案（仅管理员可用，通过 RLS 控制） */
+  listAll: async (): Promise<ProjectInfo[]> => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  /** 分析所有项目中的未套价清单项 */
+  analyzeUnpriced: async (): Promise<UnpricedItem[]> => {
+    const allProjects = await projects.listAll()
+    const nameMap = new Map<string, {
+      normalizedName: string
+      count: number
+      examples: Set<string>
+      projects: { projectId: number; projectName: string; rowName: string }[]
+      units: Set<string>
+    }>()
+
+    for (const proj of allProjects) {
+      const groups = proj.groups_json
+      if (!Array.isArray(groups)) continue
+
+      for (const group of groups) {
+        const sections = group.sections || []
+        for (const section of sections) {
+          const rows = section.rows || []
+          for (const row of rows) {
+            // 未套价 = subs 为空数组或不存在
+            const subs = row.subs || []
+            if (subs.length > 0) continue
+            const name = row.name?.trim()
+            if (!name) continue
+
+            const normalized = normalizeItemName(name)
+            const key = normalized
+
+            if (!nameMap.has(key)) {
+              nameMap.set(key, {
+                normalizedName: normalized,
+                count: 0,
+                examples: new Set(),
+                projects: [],
+                units: new Set(),
+              })
+            }
+            const entry = nameMap.get(key)!
+            entry.count++
+            entry.examples.add(name)
+            if (row.unit) entry.units.add(row.unit)
+            // 只保留最近 3 个项目引用
+            if (entry.projects.length < 3) {
+              entry.projects.push({
+                projectId: proj.id,
+                projectName: proj.name,
+                rowName: name,
+              })
+            }
+          }
+        }
+      }
+    }
+
+    // 转为数组并按 count 降序排序
+    const result = Array.from(nameMap.values()).map(entry => ({
+      normalizedName: entry.normalizedName,
+      count: entry.count,
+      examples: Array.from(entry.examples).slice(0, 5), // 最多5个示例
+      projects: entry.projects,
+      units: Array.from(entry.units),
+    }))
+
+    result.sort((a, b) => b.count - a.count)
+    return result
+  },
+}
+
+/**
+ * 归一化清单项名称，用于模糊匹配
+ * - 转小写、去空格、统一标点
+ * - 去除常见前缀编号
+ * - 提取核心关键词
+ */
+function normalizeItemName(name: string): string {
+  let s = name
+    .replace(/[\s\n\r\t]+/g, '')    // 去空白
+    .replace(/[（）【】]/g, '')       // 去中文括号
+    .replace(/[()\[\]]/g, '')        // 去英文括号
+    .replace(/[：:、,，;；]/g, '')   // 去标点
+    .replace(/^[\d]+[、.．-]/, '')   // 去开头编号
+    .replace(/[①②③④⑤⑥⑦⑧⑨⑩]/g, '')
+    .trim()
+  // 提取核心：去掉常见修饰词
+  s = s
+    .replace(/^含/g, '')
+    .replace(/综合考虑.*$/g, '')
+    .trim()
+  return s || name.trim()
+}

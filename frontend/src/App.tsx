@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage'
 import BenchmarkPage from './pages/BenchmarkPage'
 import RulesPage from './pages/RulesPage'
 import ApprovalPage from './pages/ApprovalPage'
+import UnpricedItemsPage from './pages/UnpricedItemsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -16,6 +17,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) {
+    return <div style={{ padding: 80, textAlign: 'center', color: '#888' }}>⏳ 加载中...</div>
+  }
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.is_admin) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
   const location = useLocation()
@@ -23,6 +34,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { path: '/', label: '基准价查询', emoji: '📊' },
     { path: '/rules', label: '基准价说明', emoji: '📄' },
+    ...(user?.is_admin ? [{ path: '/unpriced', label: '补缺清单', emoji: '🧩' }] : []),
   ]
 
   return (
@@ -113,6 +125,13 @@ function AppRoutes() {
         <ProtectedRoute>
           <AppLayout>
             <RulesPage />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/unpriced" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <UnpricedItemsPage />
           </AppLayout>
         </ProtectedRoute>
       } />
