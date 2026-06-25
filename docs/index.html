@@ -81,7 +81,7 @@ body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
 <div id="authBox" class="auth-box">
   <div class="logo">🏗️</div>
   <h1>装修成本分析系统</h1>
-  <p id="authSub">登录您的账户</p>
+  <p id="authSub">工作协同平台</p>
 
   <div class="auth-err" id="authErr"></div>
   <div class="auth-ok" id="authOk"></div>
@@ -276,7 +276,7 @@ function showAuth(mode) {
   document.getElementById('pendingBox').style.display = 'none';
   document.getElementById('authErr').style.display = 'none';
   document.getElementById('authOk').style.display = 'none';
-  document.getElementById('authSub').textContent = mode === 'login' ? '登录您的账户' : '注册新账户';
+  document.getElementById('authSub').textContent = mode === 'login' ? '工作协同平台' : '注册新账户';
 }
 
 async function doLogin(e) {
