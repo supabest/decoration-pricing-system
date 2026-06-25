@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>导入知识库</title>
+<style>
+body{font-family:sans-serif;padding:40px;max-width:600px;margin:0 auto;text-align:center}
+.btn{padding:12px 30px;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:16px;cursor:pointer}
+.btn:hover{opacity:.88}
+.log{margin-top:20px;font-size:14px;text-align:left;line-height:1.8;min-height:40px}
+.ok{color:green}.err{color:red}.info{color:#888}
+</style></head>
+<body>
+<h2>🗂 导入 AI 知识库</h2>
+<p class="info">将代码中的12条知识点导入 Supabase</p>
+<button class="btn" onclick="doImport()">开始导入</button>
+<div class="log" id="log"></div>
+<script>
+const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
+const ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
+const DATA = [
+  {category:'技巧',keyword:'石膏板',content:'石膏板天花/间墙未注明层数默认双层',team:'木工班组'},
+  {category:'技巧',keyword:'砂浆厚度',content:'地面砂浆厚度默认40mm',team:'泥水班组'},
+  {category:'技巧',keyword:'乳胶漆',content:'乳胶漆只对应油漆班组子目，不要选木工班组',team:'油漆班组'},
+  {category:'技巧',keyword:'单位匹配',content:'清单单位为㎡时优先匹配㎡子目，注意与m/m³区分'},
+  {category:'同义词',keyword:'地面找平',content:'地面-水泥砂浆找平',team:'泥水班组'},
+  {category:'同义词',keyword:'自流平',content:'地面-水泥自流平漆',team:'泥水班组'},
+  {category:'同义词',keyword:'吊顶',content:'天棚-石膏板吊顶',team:'木工班组'},
+  {category:'同义词',keyword:'隔墙',content:'龙骨隔墙',team:'木工班组'},
+  {category:'同义词',keyword:'地脚线',content:'踢脚线',team:'泥水班组'},
+  {category:'特征规则',keyword:'双层',content:'石膏板为双层时选天棚-石膏板吊顶（双层）',team:'木工班组'},
+  {category:'特征规则',keyword:'防水',content:'含防水关键词选防水子目',team:'泥水班组'},
+  {category:'特征规则',keyword:'不锈钢',content:'含不锈钢优先选铁工班组',team:'铁工班组'}
+];
+
+async function doImport() {
+  const log = document.getElementById('log');
+  log.innerHTML = '<span class="info">⏳ 获取登录状态...</span>';
+  const token = localStorage.getItem('sb-access-token');
+  if (!token) { log.innerHTML = '<span class="err">❌ 请先在主站登录</span>'; return; }
+
+  log.innerHTML = '<span class="info">⏳ 清空旧数据...</span>';
+  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=neq.0', {
+    method:'DELETE', headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'}
+  }).catch(()=>{});
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < DATA.length; i += 5) {
+    const batch = DATA.slice(i, i + 5);
+    try {
+      const r = await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge', {
+        method:'POST', headers:{'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'},
+        body: JSON.stringify(batch)
+      });
+      if (r.ok) ok += batch.length; else fail += batch.length;
+      log.innerHTML = `<span class="info">⏳ ${ok+fail}/${DATA.length}...</span>`;
+    } catch(e) { fail += batch.length; }
+  }
+  log.innerHTML = `<span class="ok">✅ 导入完成！成功 ${ok} 条${fail ? '，失败 '+fail+' 条' : ''}</span>`;
+}
+</script>
+</body>
+</html>
