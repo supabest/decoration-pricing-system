@@ -221,22 +221,21 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
 </style>
 </head>
 <body>
-<div class="hdr">
-  <div class="hdr-brand">
-    <div class="hdr-logo">套</div>
-    <span class="hdr-title">装修成本分析工具</span>
-    <span class="hdr-sub">v4.0</span>
+<div class="hdr" style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 14px;background:var(--bg2);border-bottom:2px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:var(--shadow);overflow-x:auto;white-space:nowrap">
+  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-right:10px">
+    <span style="font-size:18px">🏗️</span>
+    <span style="font-size:14px;font-weight:700;color:var(--tx)">装修成本分析系统</span>
   </div>
-  <div class="hdr-acts">
+  <div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap">
     <button class="btn btn-sm" onclick="importBoq()">📂 导入清单</button>
     <button class="btn btn-sm" onclick="addBoqRow()">＋ 新增清单行</button>
-    <button class="btn-ai" id="aiBtn" onclick="startAiPricing()">✨ AI 一键套价</button>
-    <button class="btn btn-suc btn-sm" onclick="exportResult()">⬇ 导出套价表</button>
-    <button class="btn btn-sm" onclick="document.getElementById('benchFileIn').click()" title="重新上传企业基准价.xlsx 以更新库数据">🔄 更新基准价库</button><button class="btn btn-sm" onclick="document.getElementById('knowledgeFileIn').click()" title="上传套价技巧/同义词知识库">🧠 知识库</button>
-    <button class="btn btn-sm" onclick="openBenchNote()" title="查看基准价编制说明">📋 基准价说明</button>
-    <button class="btn btn-sm" onclick="openFeedback()" style="color:var(--acc);border-color:var(--acc)" title="反馈套价问题，帮助持续改进工具">💡 意见反馈</button>
-    <a href="admin.html" class="btn btn-sm" style="color:var(--acc);border-color:var(--acc);text-decoration:none">⚙ 管理</a>
-    <span id="userNameDisplay" style="font-size:12px;color:var(--tx2);margin-left:6px"></span>
+    <button class="btn btn-sm" id="aiBtn" onclick="startAiPricing()" style="background:linear-gradient(135deg,#2b5ea7,#1d6fa5);color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">✨ AI 一键套价</button>
+    <button class="btn btn-sm" onclick="exportResult()" style="background:var(--grn-d);border-color:var(--grn);color:var(--grn);font-weight:600">⬇ 导出套价表</button>
+    <button class="btn btn-sm" onclick="document.getElementById('benchFileIn').click()">🔄 更新基准价库</button>
+    <button class="btn btn-sm" onclick="document.getElementById('knowledgeFileIn').click()">🧠 知识库</button>
+    <button class="btn btn-sm" onclick="openFeedback()" style="color:var(--acc);border-color:var(--acc)">💡 意见反馈</button>
+    <a href="admin.html" class="btn btn-sm" style="color:var(--acc);border-color:var(--acc);text-decoration:none">⚙ 管理后台</a>
+    <span id="userNameDisplay" style="font-size:11px;color:var(--tx2);margin-left:4px"></span>
     <button class="btn btn-sm" onclick="doLogoutTool()" style="color:var(--red);border-color:var(--red);padding:3px 8px;font-size:11px">退出</button>
   </div>
 </div>
@@ -268,28 +267,21 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
       </div>
       <button class="btn btn-sm hidden" id="aiStopBtn" style="color:var(--red);border-color:var(--red)" onclick="stopAi()">⏹ 停止</button>
     </div>
-    <div class="proj-bar">
-      <div class="pf"><span class="pl">项目名称</span><input class="pi" id="projName" type="text" placeholder="请输入项目名称" style="min-width:180px"></div>
-      <div class="pf"><span class="pl">班组类型</span><input class="pi" id="projTeam" type="text" placeholder="如：泥水班组" style="min-width:100px"></div>
-      <div class="pf"><span class="pl">类型系数</span><span class="coef-badge" id="coefBadge" onclick="openCoefModal()">×1.00</span></div>
-      <div class="pf"><span class="pl">日期</span><input class="pi" id="projDate" type="text" placeholder="2026-06" style="min-width:72px"></div>
-      <div class="pf"><span class="pl">时工单价</span>
-        <input class="pi" id="hourlyRateInput" type="number" min="0" step="10" value="350"
-          style="width:64px" title="无法套用基准价定额的零星工程，按此单价×工日数计算"
-          oninput="updateHourlyRate(this.value)">
-        <span style="font-size:11px;color:var(--tx3)">元/工日</span>
-      </div>
+    <div class="proj-bar" style="background:var(--bg3);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--tx2);font-weight:500">项目名称</span><input class="pi" id="projName" type="text" placeholder="请输入项目名称" style="min-width:160px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;outline:none"></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--tx2);font-weight:500">类型系数</span><span class="coef-badge" id="coefBadge" onclick="openCoefModal()" style="background:var(--yel-d);border:1.5px solid var(--yel);color:var(--yel);font-size:11px;padding:3px 9px;border-radius:5px;font-family:var(--mono);cursor:pointer;font-weight:700">×1.00</span></div>
+      <!-- 保留隐藏元素供JS读取 -->
+      <input type="hidden" id="projTeam" value="">
+      <input type="hidden" id="projDate" value="">
+      <input type="hidden" id="hourlyRateInput" value="350">
     </div>
-    <div class="tbar">
-      <div class="tbar-l">
-        <span style="font-size:11px;color:var(--tx3)">共 <span id="rowCnt" style="color:var(--tx2)">0</span> 条</span>
-        <button class="btn btn-danger-txt btn-sm" onclick="clearAll()">🗑 清空</button>
-        <button class="btn btn-ghost btn-sm" onclick="setAllOpen(true,true)">全展开</button>
-        <button class="btn btn-ghost btn-sm" onclick="setAllOpen(false,false)">全折叠</button>
-        <button class="btn btn-sm" onclick="saveProject()" style="color:var(--grn);border-color:var(--grn)">💾 保存方案</button>
-        <button class="btn btn-ghost btn-sm" onclick="openHistory()">📂 历史方案</button>
-      </div>
-      <div class="tbar-r">展开清单行后可从左侧<b style="color:var(--tx2)">拖拽</b>子目 或 点击<b style="color:var(--tx2)">「+ 挂子目」</b></div>
+    <div class="tbar" style="background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--tx3)">共 <span id="rowCnt" style="color:var(--tx2)">0</span> 条</span>
+      <button class="btn btn-sm" onclick="clearAll()" style="color:var(--red);border-color:var(--red);padding:3px 8px;font-size:11px;background:transparent;border:1.5px solid var(--border);border-radius:6px;cursor:pointer">🗑 清空</button>
+      <button class="btn btn-sm" onclick="setAllOpen(true,true)" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">全展开</button>
+      <button class="btn btn-sm" onclick="setAllOpen(false,false)" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">全折叠</button>
+      <button class="btn btn-sm" onclick="saveProject()" style="color:var(--grn);border-color:var(--grn);padding:3px 10px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;font-weight:600">💾 保存方案</button>
+      <button class="btn btn-sm" onclick="openHistory()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">📂 历史方案</button>
     </div>
     <div class="boq-wrap" id="boqWrap">
       <div class="upload-area" id="uploadArea"
