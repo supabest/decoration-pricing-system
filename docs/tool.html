@@ -427,7 +427,6 @@ rebuildAll();
 let SHEETS = Object.keys(DB_EMBEDDED);
 
 async function loadFromSupabase() {
-  // 加载基准价
   const items = await _get('benchmark_items', {order:{col:'trade_team',asc:true}}).catch(()=>[]);
   if (items && items.length > 0) {
     DB = {};
@@ -438,18 +437,9 @@ async function loadFromSupabase() {
     ALL = [];
     Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
     SHEETS = Object.keys(DB);
+    return true;
   }
-  // 加载 AI 知识库（不影响主流程）
-  const k = await _get('ai_knowledge', {order:{col:'category',asc:true}}).catch(()=>[]);
-  if (k && k.length) {
-    AI_KNOWLEDGE = {tips:[],synonyms:[],rules:[]};
-    k.forEach(i => {
-      if (i.category === '技巧') AI_KNOWLEDGE.tips.push(i);
-      else if (i.category === '同义词') AI_KNOWLEDGE.synonyms.push(i);
-      else AI_KNOWLEDGE.rules.push(i);
-    });
-  }
-  return items && items.length > 0;
+  return false;
 }
 
 // ═══════════ STATE ═══════════
