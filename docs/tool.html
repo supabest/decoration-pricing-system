@@ -119,7 +119,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
   text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);white-space:nowrap;background:var(--bg3)}
 .boq-table th.r,.boq-table td.r{text-align:right}.boq-table th.c,.boq-table td.c{text-align:center}
 .c-no{width:40px}.c-nm{min-width:140px}.c-sp{width:170px}
-.c-un{width:48px}.c-qty{width:80px}.c-pr{width:86px}.c-tot{width:98px}.c-re{width:100px}.c-ac{width:48px}
+.c-un{width:48px}.c-qty{width:80px}.c-pr{width:86px}.c-tot{width:98px}.c-re{width:100px}.c-ac{width:48px}.c-mat{width:60px}.c-waste{width:50px}.c-aux{width:60px};.c-mat{width:60px}.c-waste{width:50px}.c-aux{width:60px}
 .pr{border-bottom:1px solid var(--border);transition:background .08s;background:var(--bg2)}
 .pr:hover{background:var(--bg4)}.pr.drop-hi td{background:rgba(29,111,165,.08)!important}
 .pr td{padding:8px 10px;vertical-align:middle}
@@ -641,12 +641,12 @@ function renderBoq() {
     html += '<table class="boq-table"><thead><tr>' +
       '<th class="c-no c">序号</th><th class="c-nm">项目名称</th><th class="c-sp">项目特征</th>' +
       '<th class="c-un c">单位</th><th class="c-qty r">工程量</th>' +
-      '<th class="c-pr r">人工单价</th><th class="c-tot r">人工合价</th>' +
+      '<th class="c-pr r">人工单价</th><th class="c-tot r">人工合价</th><th class="c-mat r">主材费</th><th class="c-waste r">损耗率</th><th class="c-aux r">辅材费</th>' +
       '<th class="c-re">备注</th><th class="c-ac c">操作</th></tr></thead><tbody>';
 
     g.sections.forEach(s => {
       const st = secTotal(s);
-      html += '<tr><td colspan="9" style="padding:0">' +
+      html += '<tr><td colspan="12" style="padding:0">' +
         '<div class="sec-row" onclick="toggleSection('+g.id+','+s.id+')">' +
         '<span class="sec-arrow'+(s.open?'':' closed')+'">▾</span>' +
         '<span class="sec-name">'+esc(s.name)+'</span>' +
@@ -687,13 +687,16 @@ function renderBoq() {
           '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
           '<td class="r"><input class="qty-i" type="number" min="0" step="any" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
           '<td class="r-price r">'+fmt(up)+'</td><td class="r-total r">'+fmt(tot)+'</td>' +
+          '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></td>' +
+          '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
+          '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.auxCost+'" placeholder="0" title="辅材费" onchange="updField('+r.id+',\'auxCost\',this.value)"></td>' +
           '<td><input class="ri ri-sm" value="'+esc(r.remark)+'" placeholder="备注" onchange="updField('+r.id+',\'remark\',this.value)"></td>' +
           '<td class="c"><button class="btn btn-del" onclick="delRow('+r.id+')">✕</button></td>' +
           '</tr>';
 
         if (r.open) {
-          html += '<tr><td colspan="9" class="sub-wrap-td" style="padding:8px 16px;background:var(--bg4)"><div style="display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap"><span style="font-weight:600;color:var(--tx2)">材料明细</span><span>主材: <input class="ri ri-sm" style="width:80px" value="'+esc(r.matName||'')+'" placeholder="名称" onchange="updField('+r.id+',\'matName\',this.value)"> <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="单价" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></span><span>损耗率: <input class="cof-i" style="width:50px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" onchange="updField('+r.id+',\'wasteRate\',this.value)">%</span><span>辅材费: <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.auxCost+'" placeholder="0" title="辅材费" onchange="updField('+r.id+',\'auxCost\',this.value)"></span></div></td></tr>';
-          html += '<tr><td colspan="9" class="sub-wrap-td"><table class="sub-inner">';
+          html += '<tr><td colspan="12" class="sub-wrap-td" style="padding:8px 16px;background:var(--bg4)"><div style="display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap"><span style="font-weight:600;color:var(--tx2)">材料明细</span><span>主材: <input class="ri ri-sm" style="width:80px" value="'+esc(r.matName||'')+'" placeholder="名称" onchange="updField('+r.id+',\'matName\',this.value)"> <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="单价" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></span><span>损耗率: <input class="cof-i" style="width:50px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" onchange="updField('+r.id+',\'wasteRate\',this.value)">%</span><span>辅材费: <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.auxCost+'" placeholder="0" title="辅材费" onchange="updField('+r.id+',\'auxCost\',this.value)"></span></div></td></tr>';
+          html += '<tr><td colspan="12" class="sub-wrap-td"><table class="sub-inner">';
           if (r.subs.length) {
             html += '<tr class="sub-th"><th style="width:80px">编号</th><th>子目名称</th>' +
               '<th style="width:110px">班组</th><th style="width:60px" class="c">定额单位</th>' +
@@ -730,7 +733,7 @@ function renderBoq() {
             html += '<tr class="sub-sum-tr"><td colspan="7"><span style="font-size:11px;color:var(--tx3);font-weight:600">合计人工单价</span></td>' +
               '<td class="sub-sum-val r">¥'+subSum.toFixed(2)+'</td><td></td></tr>';
           }
-          html += '<tr class="addsub-tr"><td colspan="9">' +
+          html += '<tr class="addsub-tr"><td colspan="12">' +
             '<button class="addsub-btn" onclick="openPicker('+r.id+')">＋ 挂子目（从基准价库选择）</button>' +
             '</td></tr></table></td></tr>';
         }
