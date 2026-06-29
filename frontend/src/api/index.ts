@@ -23,6 +23,9 @@ export interface BenchmarkItem {
   spec: string | null
   unit: string
   unit_price: number
+  auxiliary_price: number | null
+  material_price: number | null
+  material_loss_rate: number | null
   remark: string | null
   updated_by: string | null
   version: number
@@ -410,6 +413,85 @@ export const projects = {
  * - 去除常见前缀编号
  * - 提取核心关键词
  */
+// ================================================
+// Auxiliary Rules — 辅材计算规则
+// ================================================
+
+export interface AuxiliaryRule {
+  id: number
+  rule_name: string
+  benchmark_codes: string
+  keywords: string
+  material_name: string
+  calc_method: string
+  calc_formula: string
+  default_params: any
+  unit_price: number
+  unit: string
+  priority: number
+  remark: string
+  created_at: string
+}
+
+export const auxiliaryRules = {
+  list: async (): Promise<AuxiliaryRule[]> => {
+    const { data, error } = await (supabase.from('auxiliary_rules') as any)
+      .select('*')
+      .order('priority', { ascending: true })
+
+    if (error) throw error
+    return data || []
+  },
+
+  getItem: async (id: number): Promise<AuxiliaryRule | null> => {
+    const { data, error } = await (supabase.from('auxiliary_rules') as any)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) return null
+    return data
+  },
+
+  /** 根据基准价编号和关键词匹配辅材规则 */
+  matchByKeywords: async (keywords: string, benchmarkCode?: string): Promise<AuxiliaryRule[]> => {
+    let query = (supabase.from('auxiliary_rules') as any).select('*')
+
+    if (keywords) {
+      // 用 OR 匹配多个关键词
+      const terms = keywords.split(/[,，、\s]+/).filter(Boolean)
+      if (terms.length > 0) {
+        const conditions = terms.map((t: string) => `keywords.ilike.%${t}%`)
+        query = query.or(conditions.join(','))
+      }
+    }
+
+    const { data, error } = await query.order('priority', { ascending: true })
+    if (error) throw error
+    return data || []
+  },
+
+  create: async (rule: Partial<AuxiliaryRule>): Promise<void> => {
+    const { error } = await (supabase.from('auxiliary_rules') as any)
+      .insert(rule)
+    if (error) throw error
+  },
+
+  update: async (id: number, rule: Partial<AuxiliaryRule>): Promise<void> => {
+    const { error } = await (supabase.from('auxiliary_rules') as any)
+      .update(rule)
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  delete: async (id: number): Promise<void> => {
+    const { error } = await (supabase.from('auxiliary_rules') as any)
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  },
+}
+
 function normalizeItemName(name: string): string {
   let s = name
     .replace(/[\s\n\r\t]+/g, '')    // 去空白
