@@ -624,7 +624,7 @@ function secTotal(s) { return s.rows.reduce((a,r)=>a+(rowTotal(r)||0),0); }
 function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
 
 // ═══════════ RENDER ═══════════
-function renderBoq() {
+function renderBoq() { try {
   const main = document.getElementById('boqMain');
   if (!groups.length) { updateSum(); return; }
   let html = '';
@@ -1381,7 +1381,7 @@ function buildCoefOpts() {
     '<button class="btn btn-sm" id="cob-'+i+'" onclick="pickCoef('+o.val+','+i+')">选用</button></div>'
   ).join('');
 }
-function openCoefModal() { pendCoef=globalCoef; document.getElementById('customCoef').value=globalCoef.toFixed(2); document.getElementById('coefMod').classList.remove('hidden'); }
+function openCoefModal() { try { pendCoef=globalCoef; document.getElementById('customCoef').value=globalCoef.toFixed(2); document.getElementById('coefMod').classList.remove('hidden'); }catch(e){} }
 function closeCoefModal() { document.getElementById('coefMod').classList.add('hidden'); }
 function pickCoef(val,idx) {
   pendCoef=val; document.getElementById('customCoef').value=val.toFixed(2);
