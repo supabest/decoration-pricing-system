@@ -624,7 +624,7 @@ function secTotal(s) { return s.rows.reduce((a,r)=>a+(rowTotal(r)||0),0); }
 function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
 
 // ═══════════ RENDER ═══════════
-function renderBoq() { try {
+function renderBoq() {
   const main = document.getElementById('boqMain');
   if (!groups.length) { updateSum(); return; }
   let html = '';
@@ -747,9 +747,8 @@ function renderBoq() { try {
   });
   main.innerHTML = html;
   updateSum();
+  updateSum();
 }
-
-// ═══════════ IMPORT ═══════════
 function importBoq() { document.getElementById('fileIn').click(); }
 function uDragover(e) { e.preventDefault(); document.getElementById('uploadArea').classList.add('dov'); }
 function uDragleave() { document.getElementById('uploadArea').classList.remove('dov'); }
