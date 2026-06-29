@@ -7,6 +7,7 @@ import BenchmarkPage from './pages/BenchmarkPage'
 import RulesPage from './pages/RulesPage'
 import ApprovalPage from './pages/ApprovalPage'
 import UnpricedItemsPage from './pages/UnpricedItemsPage'
+import AuxiliaryRulesPage from './pages/AuxiliaryRulesPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -34,7 +35,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { path: '/', label: '基准价查询', emoji: '📊' },
     { path: '/rules', label: '基准价说明', emoji: '📄' },
-    ...(user?.is_admin ? [{ path: '/unpriced', label: '补缺清单', emoji: '🧩' }] : []),
+    { path: '/rules', label: '基准价说明', emoji: '📄' },
+    { path: '/auxiliary-rules', label: '辅材规则', emoji: '🧱' },
+    ...(user?.is_admin ? [
+      { path: '/unpriced', label: '补缺清单', emoji: '🧩' },
+    ] : []),
   ]
 
   return (
@@ -132,6 +137,13 @@ function AppRoutes() {
         <ProtectedRoute>
           <AppLayout>
             <UnpricedItemsPage />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      <Route path="/auxiliary-rules" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <AuxiliaryRulesPage />
           </AppLayout>
         </ProtectedRoute>
       } />

@@ -1,162 +1,126 @@
-# 装修工程AI套价系统 — 开发指南
+# 装修成本分析系统 — 开发指南
 
 ## 项目概述
 
-装修工程AI套价系统，核心能力：
+装修成本分析系统 — 装修工程人工费+材料费智能套价工具。
 
-| 模块 | 功能 | 技术路径 |
-|------|------|----------|
-| 企业基准价数据库 | 存储/管理企业自有工料机价格 | PostgreSQL + 版本化 |
-| 材料价格数据库 | 多来源材料价格采集与维护 | PostgreSQL + 定时同步 |
-| AI定额推荐 | 根据工序/工艺自动推荐定额子目 | LLM + Embedding 语义检索 |
-| 清单自动匹配 | 自然语言清单→结构化定额匹配 | NER + 向量相似度 + LLM |
-| 自动计价 | 套用定额生成完整造价单 | 规则引擎 + AI 调价建议 |
+**生产地址**: `https://supabest.github.io/decoration-pricing-system/`
+**后端**: Supabase（PostgreSQL + Auth + REST API）
+**前端**: React + TypeScript + Vite（GitHub Pages 部署）
 
-## 技术栈
+## 分支策略
 
-- **后端**: Python 3.12 + FastAPI + SQLAlchemy 2.0 + Alembic
-- **AI**: LangChain / LLM API / Embedding 模型 / 向量数据库
-- **数据库**: PostgreSQL + pgvector（结构化+向量一体化）
-- **缓存**: Redis
-- **任务队列**: Celery + RabbitMQ/Redis
-- **前端**（可选）: React + TypeScript + Ant Design
-- **容器化**: Docker + docker-compose
+| 分支 | 用途 |
+|------|------|
+| `main` | 生产分支，GitHub Actions 自动部署到 Pages |
+| `feat/material-pricing` | 材料价格库 + AI 材料识别开发中 |
 
-## 核心数据模型
+## 当前架构
 
-### 企业基准价 (enterprise_prices)
 ```
-id, enterprise_id, item_code, item_name, unit,
-unit_price, labor_cost, material_cost, machinery_cost,
-effective_date, expire_date, version, status
-```
-
-### 材料价格 (material_prices)
-```
-id, material_code, material_name, category_id, spec,
-unit, unit_price, source_type, source_region, price_date,
-supplier, price_trend (枚举: up/down/stable)
+GitHub Pages（静态托管）
+  └─ React SPA（Vite + TypeScript + HashRouter）
+       ├─ Supabase SDK 直连
+       │    ├─ Auth（邮箱登录/注册，Supabase Auth）
+       │    ├─ benchmark_items（基准价 497 条）
+       │    ├─ profiles（用户资料 + 管理员审批）
+       │    ├─ projects（历史套价方案）
+       │    └─ benchmark_notes（基准价说明）
+       └─ pages/
+            ├─ LoginPage / RegisterPage / ApprovalPage
+            ├─ BenchmarkPage（首页，基准价查询）
+            ├─ RulesPage（基准价说明）
+            ├─ UnpricedItemsPage（补缺清单，管理员）
+            └─ （更多页面开发中）
 ```
 
-### 定额 (quotas)
-```
-id, quota_code, quota_name, work_type, decoration_type,
-unit, labor_consumption, material_consumption,
-comprehensive_price, measurement_rules, work_content
-```
+## 前端技术栈
 
-### 清单项 (bill_items)
-```
-id, project_id, parent_id, level,
-description（原始描述，自由文本）,
-normalized_name（AI标准化后名称）,
-quantity, unit, matched_quota_id,
-match_confidence, match_method,
-computed_price, manual_adjust_price, remark
-```
+- React 18 + TypeScript + Vite 5
+- `@supabase/supabase-js`（数据库直连，无后端）
+- `react-router-dom`（HashRouter，适配 GitHub Pages）
+- 全部手写样式，无 UI 框架
 
-### 计价结果 (pricing_results)
-```
-id, project_id, version, total_price,
-labor_total, material_total, machinery_total,
-management_fee, profit, tax,
-adjustment_log (JSON), status (draft/confirmed/archived)
-```
+## Supabase 数据库
 
-## AI 工作流
+| 表 | 用途 | RLS |
+|------|------|-----|
+| `profiles` | 用户资料（is_admin, is_approved） | 管理员可改所有 |
+| `benchmark_items` | 基准价 497 条 | 已审批用户可读，管理员可写 |
+| `benchmark_notes` | 基准价说明 | 已审批用户可读 |
+| `projects` | 历史套价方案（groups_json 存完整清单） | 本人+管理员可读 |
+| `feedback` | 意见反馈 | 已登录可写 |
+| `ai_knowledge` | AI 知识库 | 管理员可写 |
 
-### 1. 定额推荐流程
-```
-用户输入工序/工艺描述
-  → 文本标准化（去除噪声、统一术语）
-  → 向量检索（Embedding → pgvector ANN 搜索 top-20）
-  → LLM 重排（输入 top-20 + 用户描述，输出 top-5 含理由）
-  → 返回推荐结果（含置信度、推荐理由、替代方案）
-```
+## 路由
 
-### 2. 清单自动匹配流程
-```
-用户粘贴/上传工程量清单（Excel/文本）
-  → 解析结构化（行 → 清单项）
-  → NER 提取关键要素（工序、材料、规格、单位）
-  → 向量相似度匹配定额库
-  → LLM 消歧（同义词/模糊描述判别）
-  → 返回匹配结果（含匹配率、多个候选）
-  → 入人工确认 / 批量确认
-```
+| 路由 | 页面 | 权限 |
+|------|------|------|
+| `/`（首页） | 基准价查询 | 登录用户 |
+| `/rules` | 基准价说明 | 登录用户 |
+| `/unpriced` | 补缺清单 | 管理员 |
+| `/login` | 登录 | - |
+| `/register` | 注册 | - |
+| `/approval` | 等待审批 | 待审批用户 |
 
-### 3. 自动计价流程
-```
-清单项已匹配定额
-  → 套用企业基准价（优先）→ 地区信息价（备选）→ 定额价（兜底）
-  → 计算直接费（人工+材料+机械）
-  → 取费（管理费+利润+规费+税金）
-  → AI 价格合理性检查（偏离度告警）
-  → 生成报价单
-```
+## 关键文件
 
-## API 设计原则
+| 文件 | 说明 |
+|------|------|
+| `frontend/src/api/index.ts` | 所有 Supabase 查询封装（auth / benchmark / projects） |
+| `frontend/src/lib/supabaseClient.ts` | Supabase 客户端初始化 |
+| `frontend/src/context/AuthContext.tsx` | 登录状态管理（监听 onAuthStateChange） |
+| `frontend/src/App.tsx` | 路由 + 导航布局 |
+| `frontend/src/pages/BenchmarkPage.tsx` | 基准价查询页 |
+| `frontend/src/pages/UnpricedItemsPage.tsx` | 补缺清单分析页 |
+| `data/seeds/benchmark_items_supabase.json` | 基准价 497 条（Supabase 导入格式） |
+| `supabase-schema.sql` | 全部建表 + RLS 脚本 |
+| `supabase-admin-rls.sql` | 管理员 RLS 扩展 |
 
-- `/api/v1/` 前缀，RESTful
-- 分页统一 `?page=1&page_size=20`
-- 响应统一包裹 `{ code, message, data }`
-- 批量操作统一 `POST /batch-*`
-- 审计日志（who/when/what）写入独立表
-- 价格相关接口支持 `?effective_date=` 时间点查询
+## 部署
 
-## 数据规范
+- **CI/CD**: GitHub Actions，push main 自动构建部署到 Pages
+- **构建**: `npm run build` → `frontend/dist/`
+- **密钥**: `frontend/.env`（已提交 git）
+  - `VITE_SUPABASE_URL=https://lnvtykghcpsjpwczbqsm.supabase.co`
+  - `VITE_SUPABASE_ANON_KEY=sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q`
 
-### 价格字段
-```
-所有价格字段统一使用 Decimal(12,2)
-统一单位为：元（人民币）
-```
-### 状态枚举
-```
-draft → pending_review → confirmed → archived
-```
-### 定额编码
-```
-统一采用：GB-50500 体系 + 企业扩展码
-```
+## 当前进度 ✅
+
+- [x] 项目骨架 + GitHub Pages 自动部署
+- [x] Supabase Auth（邮箱登录/注册）
+- [x] 基准价库 497 条 + 查询页（班组/工种筛选、分页、搜索）
+- [x] RLS 权限控制（已审批用户可查、管理员可写）
+- [x] 基准价说明页
+- [x] 补缺清单分析（分析历史方案未套价项，按出现次数排序）
+- [x] CLAUDE.md 准确反映项目现状
+
+## 待开发 🚧
+
+### 1. 恢复套价工具入口（高优）
+- [ ] 创建 `ToolPage.tsx`（iframe 嵌入 `tool.html`）
+- [ ] 将旧版 `tool.html` 放入 `frontend/public/`
+- [ ] 导航栏添加"套价工具 🔧"入口
+- [ ] 首页改为套价工具，基准价查询改为次级页面
+- [ ] 创建 `AdminUsersPage.tsx`（管理员批准/删除用户）
+
+### 2. 材料价格库（下一步重点）
+- [ ] Supabase 建 `materials` 表（名称、规格、分类、单位、单价、价格日期）
+- [ ] 材料价格管理页（类似 benchmark，增删改查 + Excel 导入）
+- [ ] API 封装（material_prices 查询、分页、筛选）
+
+### 3. AI 材料识别
+- [ ] 导入清单时 AI 分析项目特征 → 生成材料清单
+- [ ] 主材自动关联材料价格库
+- [ ] 辅材 AI 推荐种类和用量
+
+### 4. 套价界面增强
+- [ ] 每行清单项下增加材料明细表格
+- [ ] 主材损耗率列
+- [ ] 综合单价 = 人工费 + 主材×(1+损耗率) + 辅材费
 
 ## 开发原则
 
-1. **价格全版本化** — 任何价格修改不覆盖旧值，标记过期时间
-2. **AI 结果可解释** — 每条 AI 推荐必须附带置信度和理由
-3. **人工兜底** — AI 结果永远可"人工替代"，不自动写入正式数据
-4. **价格回退** — 支持按时间点回退到任意历史版本的价格
-5. **数据隔离** — 企业间数据物理隔离（schema 或 enterprise_id 分片）
-
-## 目录约定
-
-| 目录 | 职责 | 关键约束 |
-|------|------|----------|
-| `backend/app/services/` | 纯业务逻辑，不直接接触 HTTP | 输入输出均为 schema 对象 |
-| `backend/app/ai/` | AI 相关，含 prompt 模板 | 提示词不上屏，统一管理 |
-| `backend/app/api/` | HTTP 层，只做入参校验/路由 | 无业务逻辑，委托 services |
-| `backend/app/tasks/` | 定时/异步任务 | 监听 celery 队列 |
-
-## 测试要求
-
-- 每个 service 方法应有单元测试
-- AI 模块：mock LLM / Embedding 接口，测试业务流程
-- 计价引擎：固定输入 → 断言输出（快照测试）
-- 前端：组件测试 + E2E（Cypress/Playwright）
-
-## 文档管理
-
-- 接口变更同步更新 `docs/api-design.md`
-- 数据模型变更同步更新 `docs/data-model.md`
-- AI Prompt 变更记录在 git commit message 中标注 `[prompt]`
-
-## 环境变量
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `DATABASE_URL` | PostgreSQL 连接串 | `postgresql://user:pass@localhost:5432/pricing` |
-| `REDIS_URL` | Redis 连接串 | `redis://localhost:6379/0` |
-| `VECTOR_DIM` | Embedding 向量维度 | `768`（bge-large-zh） |
-| `LLM_API_KEY` | LLM API 密钥 | - |
-| `LLM_MODEL` | 模型名 | `gpt-4o` |
-| `EMBEDDING_MODEL` | Embedding 模型 | `BAAI/bge-large-zh-v1.5` |
+1. **权限可控** — 所有数据通过 RLS 保护，管理员审批用户
+2. **渐进增强** — 先有人工费用，再做材料费，再做 AI
+3. **GitHub Pages** — 纯静态，无后端服务器，依赖 Supabase
