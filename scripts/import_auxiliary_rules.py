@@ -39,12 +39,13 @@ def main():
     for r in rules:
         sql = (
             f"INSERT INTO public.auxiliary_rules "
-            f"(rule_name, trade_team, keywords, material_name, "
+            f"(rule_name, trade_team, keyword_groups, exclude_keywords, material_name, "
             f"calc_method, unit_price, unit, params, sort_order, remark) "
             f"VALUES ("
             f"{escape(r['rule_name'])}, "
             f"{escape(r.get('trade_team'))}, "
-            f"{escape(r['keywords'])}, "
+            f"{escape(r['keyword_groups'])}, "
+            f"{escape(r.get('exclude_keywords', ''))}, "
             f"{escape(r['material_name'])}, "
             f"{escape(r['calc_method'])}, "
             f"{escape(r['unit_price'])}, "
@@ -59,7 +60,7 @@ def main():
 
     sql_lines.append('-- 验证导入结果')
     sql_lines.append('SELECT COUNT(*) as 规则总数 FROM public.auxiliary_rules;')
-    sql_lines.append('SELECT rule_name, trade_team, keywords, calc_method, unit_price FROM public.auxiliary_rules ORDER BY trade_team, sort_order;')
+    sql_lines.append('SELECT rule_name, trade_team, keyword_groups, exclude_keywords, calc_method, unit_price FROM public.auxiliary_rules ORDER BY trade_team, sort_order;')
 
     output = BASE / 'data' / 'seeds' / 'import_auxiliary_rules.sql'
     with open(output, 'w', encoding='utf-8') as f:

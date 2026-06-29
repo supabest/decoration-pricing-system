@@ -414,7 +414,7 @@ export const projects = {
  * - 提取核心关键词
  */
 // ================================================
-// Auxiliary Rules — 辅材计算规则（优化版）
+// Auxiliary Rules — 辅材计算规则（语言匹配版）
 // ================================================
 
 export interface AuxiliaryRule {
@@ -422,7 +422,8 @@ export interface AuxiliaryRule {
   rule_name: string
   trade_team: string | null
   work_type: string | null
-  keywords: string
+  keyword_groups: string
+  exclude_keywords: string | null
   material_name: string
   calc_method: 'fixed' | 'thickness' | 'ratio' | 'per_unit'
   unit_price: number
@@ -431,6 +432,83 @@ export interface AuxiliaryRule {
   sort_order: number
   remark: string
   created_at: string
+}
+
+export interface MatchedRule extends AuxiliaryRule {
+  /** 匹配得分 */
+  score: number
+  /** 匹配详情 */
+  matchDetail: string
+}
+
+/**
+ * 对一行项目描述进行语言匹配评分。
+ * 返回按得分降序排列的匹配规则列表。
+ */
+function scoreRule(rule: AuxiliaryRule, tradeTeam: string, itemName: string, spec: string): MatchedRule | null {
+  let score = 0
+  const details: string[] = []
+
+  // ---- 1. 班组匹配 ----
+  if (rule.trade_team && rule.trade_team === tradeTeam) {
+    score += 30
+    details.push('班组精确匹配+30')
+  } else if (!rule.trade_team) {
+    // 通用规则，不加分也不扣分
+  } else {
+    // 班组不匹配，此规则不适用
+    return null
+  }
+
+  const fullText = (itemName + ' ' + spec).toLowerCase()
+
+  // ---- 2. 排除词检查 ----
+  if (rule.exclude_keywords) {
+    const excludes = rule.exclude_keywords.split(/[,，、\s]+/).filter(Boolean)
+    for (const ex of excludes) {
+      if (fullText.includes(ex.toLowerCase())) {
+        return null // 命中排除词，直接跳过
+      }
+    }
+  }
+
+  // ---- 3. 关键词组匹配（分号=AND，逗号=OR） ----
+  if (rule.keyword_groups) {
+    const groups = rule.keyword_groups.split(';').filter(Boolean)
+    let allGroupsHit = true
+    let hitCount = 0
+
+    for (const group of groups) {
+      const terms = group.split(/[,，、\s]+/).filter(Boolean)
+      const anyHit = terms.some(t => fullText.includes(t.toLowerCase()))
+      if (anyHit) {
+        hitCount++
+        details.push(`词组[${group}]命中`)
+      } else {
+        allGroupsHit = false
+      }
+    }
+
+    // 每组至少命中一个词 => 全部命中
+    if (allGroupsHit && groups.length > 0) {
+      score += 40 + hitCount * 5 // 基础分 + 额外命中奖励
+      details.push(`全部词组命中+${40 + hitCount * 5}`)
+    } else if (hitCount > 0) {
+      // 部分命中，可以加少量分但分数低
+      score += hitCount * 8
+      details.push(`部分词组命中+${hitCount * 8}`)
+    }
+  }
+
+  // ---- 4. sort_order 优先级加分 ----
+  const orderBonus = Math.max(0, 10 - (rule.sort_order || 0))
+  score += orderBonus
+
+  // ---- 5. 最低门槛：至少30分才认为匹配 ----
+  if (score < 30) return null
+
+  const matchDetail = details.join(' | ')
+  return { ...rule, score, matchDetail }
 }
 
 export const auxiliaryRules = {
@@ -453,20 +531,31 @@ export const auxiliaryRules = {
     return data
   },
 
-  /** 根据班组+关键词匹配辅材规则 */
-  matchByItem: async (tradeTeam: string, keywords: string): Promise<AuxiliaryRule[]> => {
-    const terms = keywords.split(/[,，、\s]+/).filter(Boolean)
-    const conditions = terms.map((t: string) => `keywords.ilike.%${t}%`)
-
+  /**
+   * 语言匹配：根据项目名称+特征描述+班组，对辅材规则做多维评分匹配
+   * @returns 按得分降序排列的匹配规则
+   */
+  matchByItem: async (tradeTeam: string, itemName: string, spec?: string): Promise<MatchedRule[]> => {
+    // 1. 查出所有规则（条件允许的话可以优化为只查相关班组）
     let query = (supabase.from('auxiliary_rules') as any).select('*')
       .or(`trade_team.eq.${tradeTeam},trade_team.is.null`)
-    if (conditions.length > 0) {
-      query = query.or(conditions.join(','))
-    }
 
     const { data, error } = await query.order('sort_order', { ascending: true })
     if (error) throw error
-    return data || []
+
+    const allRules: AuxiliaryRule[] = data || []
+    const specText = spec || ''
+
+    // 2. 对每条规则做语言评分
+    const scored: MatchedRule[] = []
+    for (const rule of allRules) {
+      const result = scoreRule(rule, tradeTeam, itemName, specText)
+      if (result) scored.push(result)
+    }
+
+    // 3. 按得分降序
+    scored.sort((a, b) => b.score - a.score)
+    return scored
   },
 
   create: async (rule: Partial<AuxiliaryRule>): Promise<void> => {

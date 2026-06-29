@@ -58,7 +58,7 @@ export default function AuxiliaryRulesPage() {
       setForm({ ...rule, params: rule.params ? JSON.stringify(rule.params, null, 2) : '' })
     } else {
       setEditingId(null)
-      setForm({ rule_name: '', trade_team: '', work_type: '', keywords: '', material_name: '', calc_method: 'fixed', unit_price: 0, unit: '元/m²', params: '', sort_order: 0 })
+      setForm({ rule_name: '', trade_team: '', work_type: '', keyword_groups: '', exclude_keywords: '', material_name: '', calc_method: 'fixed', unit_price: 0, unit: '元/m²', params: '', sort_order: 0 })
     }
   }
 
@@ -160,7 +160,8 @@ function RuleCard({ rule, onEdit, onDelete }: { rule: AuxiliaryRule; onEdit: () 
 
         <div style={{ fontSize: 13, color: '#888', marginBottom: 2 }}>
           <span>{rule.trade_team ? `🏷️ ${rule.trade_team}` : '📌 通用'}</span>
-          <span style={{ marginLeft: 12 }}>🔍 {rule.keywords}</span>
+          <span style={{ marginLeft: 12 }}>🔍 {rule.keyword_groups}</span>
+          {rule.exclude_keywords && <span style={{ marginLeft: 12, color: '#cf1322' }}>🚫 {rule.exclude_keywords}</span>}
           {rule.sort_order > 0 && <span style={{ marginLeft: 12 }}>序号: {rule.sort_order}</span>}
         </div>
 
@@ -223,8 +224,14 @@ function EditForm({ form, setForm, onSave, onCancel }: {
           <input value={form.work_type || ''} onChange={e => set('work_type', e.target.value)} style={inputStyle} placeholder="可选" />
         </div>
         <div>
-          <label style={labelStyle}>匹配关键词（逗号分隔）</label>
-          <input value={form.keywords || ''} onChange={e => set('keywords', e.target.value)} style={inputStyle} placeholder="地砖,瓷砖,铺贴" />
+          <label style={labelStyle}>关键词组（分号=AND 逗号=OR）</label>
+          <input value={form.keyword_groups || ''} onChange={e => set('keyword_groups', e.target.value)} style={inputStyle} placeholder="地砖,瓷砖;地面,铺贴" />
+          <span style={{ fontSize: 11, color: '#999', display: 'block', marginTop: 2 }}>同时命中 (地砖OR瓷砖) AND (地面OR铺贴) 才算匹配</span>
+        </div>
+        <div>
+          <label style={labelStyle}>排除词（命中则跳过）</label>
+          <input value={form.exclude_keywords || ''} onChange={e => set('exclude_keywords', e.target.value)} style={inputStyle} placeholder="墙面,墙砖" />
+          <span style={{ fontSize: 11, color: '#999', display: 'block', marginTop: 2 }}>项目特征含这些词时跳过此规则</span>
         </div>
         <div>
           <label style={labelStyle}>计算方式</label>
