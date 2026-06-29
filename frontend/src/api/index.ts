@@ -414,21 +414,21 @@ export const projects = {
  * - 提取核心关键词
  */
 // ================================================
-// Auxiliary Rules — 辅材计算规则
+// Auxiliary Rules — 辅材计算规则（优化版）
 // ================================================
 
 export interface AuxiliaryRule {
   id: number
   rule_name: string
-  benchmark_codes: string
+  trade_team: string | null
+  work_type: string | null
   keywords: string
   material_name: string
-  calc_method: string
-  calc_formula: string
-  default_params: any
+  calc_method: 'fixed' | 'thickness' | 'ratio' | 'per_unit'
   unit_price: number
   unit: string
-  priority: number
+  params: any
+  sort_order: number
   remark: string
   created_at: string
 }
@@ -437,7 +437,7 @@ export const auxiliaryRules = {
   list: async (): Promise<AuxiliaryRule[]> => {
     const { data, error } = await (supabase.from('auxiliary_rules') as any)
       .select('*')
-      .order('priority', { ascending: true })
+      .order('sort_order', { ascending: true })
 
     if (error) throw error
     return data || []
@@ -453,20 +453,18 @@ export const auxiliaryRules = {
     return data
   },
 
-  /** 根据基准价编号和关键词匹配辅材规则 */
-  matchByKeywords: async (keywords: string, benchmarkCode?: string): Promise<AuxiliaryRule[]> => {
-    let query = (supabase.from('auxiliary_rules') as any).select('*')
+  /** 根据班组+关键词匹配辅材规则 */
+  matchByItem: async (tradeTeam: string, keywords: string): Promise<AuxiliaryRule[]> => {
+    const terms = keywords.split(/[,，、\s]+/).filter(Boolean)
+    const conditions = terms.map((t: string) => `keywords.ilike.%${t}%`)
 
-    if (keywords) {
-      // 用 OR 匹配多个关键词
-      const terms = keywords.split(/[,，、\s]+/).filter(Boolean)
-      if (terms.length > 0) {
-        const conditions = terms.map((t: string) => `keywords.ilike.%${t}%`)
-        query = query.or(conditions.join(','))
-      }
+    let query = (supabase.from('auxiliary_rules') as any).select('*')
+      .or(`trade_team.eq.${tradeTeam},trade_team.is.null`)
+    if (conditions.length > 0) {
+      query = query.or(conditions.join(','))
     }
 
-    const { data, error } = await query.order('priority', { ascending: true })
+    const { data, error } = await query.order('sort_order', { ascending: true })
     if (error) throw error
     return data || []
   },
@@ -489,6 +487,37 @@ export const auxiliaryRules = {
       .delete()
       .eq('id', id)
     if (error) throw error
+  },
+
+  /** 计算单条规则的辅材费 */
+  calcCost: (rule: AuxiliaryRule, qty: number): number => {
+    const price = Number(rule.unit_price) || 0
+    const params = rule.params || {}
+
+    switch (rule.calc_method) {
+      case 'fixed':
+        return price * qty
+      case 'thickness': {
+        // 厚度(m) × 面积(m²) × 单价(元/m³) × 损耗系数
+        const t = Number(params.thickness) || 0.02
+        const loss = Number(params.loss) || 1.05
+        return t * qty * price * loss
+      }
+      case 'ratio': {
+        // 用量系数 × 面积 × 单价 × 损耗
+        const r = Number(params.ratio) || 1
+        const loss = Number(params.loss) || 1.1
+        return r * qty * price * loss
+      }
+      case 'per_unit': {
+        // 每m²用N套 × 面积 × 单价 × 损耗
+        const per = Number(params.per) || 1
+        const loss = Number(params.loss) || 1.05
+        return per * qty * price * loss
+      }
+      default:
+        return 0
+    }
   },
 }
 
