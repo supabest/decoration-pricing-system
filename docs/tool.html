@@ -722,11 +722,11 @@ function renderBoq() {
                 '<td style="font-size:11px;color:var(--tx3)">'+esc(it.sheet)+'</td>' +
                 '<td class="s-unit">'+(mm?'<span style="color:var(--red);font-weight:600">'+esc(it.unit)+'</span><div style="font-size:9px;color:var(--red)">⚠️清单:'+esc(r.unit)+'</div>':esc(it.unit))+'</td>' +
                 '<td class="c"><input class="cof-i" type="number" step="0.01" min="0.01" value="'+sub.coef.toFixed(2)+'"' +
-                  ' onchange="updCoef('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value);renderBoq()" title="子目系数">' +
+                  ' onchange="updCoef('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value)" title="子目系数">' +
                   '<div class="cof-lbl">子目系数</div></td>' +
                 '<td class="c"><input class="cof-i" type="number" step="0.001" min="0.001" value="'+conv.toFixed(3)+'"' +
                   ' style="'+(mm?'border-color:var(--red);color:var(--red)':'opacity:.4')+'"' +
-                  ' onchange="updConv('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value);renderBoq()" title="换算系数">' +
+                  ' onchange="updConv('+r.id+',\''+esc(sub.bid)+'\',\''+esc(sub.bsh)+'\',this.value)" title="换算系数">' +
                   '<div class="cof-lbl" style="'+(mm?'color:var(--red)':'')+'">换算系数</div></td>' +
                 '<td class="s-base r">¥'+it.price.toFixed(2)+'</td>' +
                 '<td class="s-eff r">¥'+ep.toFixed(2)+'</td>' +
