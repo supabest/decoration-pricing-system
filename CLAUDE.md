@@ -1,4 +1,6 @@
-# 装修成本分析系统 — 开发指南
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
 
@@ -6,119 +8,71 @@
 
 **生产地址**: `https://supabest.github.io/decoration-pricing-system/`
 **后端**: Supabase（PostgreSQL + Auth + REST API）
-**前端**: React + TypeScript + Vite（GitHub Pages 部署）
+**前端主站**: React + TypeScript + Vite（GitHub Pages 部署）
+**套价工具**: `docs/tool.html`（纯 HTML/CSS/JS，V4 版）
 
 ## 分支策略
 
-| 分支 | 用途 |
-|------|------|
-| `main` | 生产分支，GitHub Actions 自动部署到 Pages |
-| `feat/material-pricing` | 材料价格库 + AI 材料识别开发中 |
+- **`main`**: 生产分支，GitHub Actions 自动部署到 Pages
+- **`feat/material-pricing`**: 材料价格库 + 材料计价功能开发中
 
-## 当前架构
+## 本地开发
 
-```
-GitHub Pages（静态托管）
-  └─ React SPA（Vite + TypeScript + HashRouter）
-       ├─ Supabase SDK 直连
-       │    ├─ Auth（邮箱登录/注册，Supabase Auth）
-       │    ├─ benchmark_items（基准价 497 条）
-       │    ├─ profiles（用户资料 + 管理员审批）
-       │    ├─ projects（历史套价方案）
-       │    └─ benchmark_notes（基准价说明）
-       └─ pages/
-            ├─ LoginPage / RegisterPage / ApprovalPage
-            ├─ BenchmarkPage（首页，基准价查询）
-            ├─ RulesPage（基准价说明）
-            ├─ UnpricedItemsPage（补缺清单，管理员）
-            └─ （更多页面开发中）
+```bash
+# 启动套价工具
+cd docs && python3 -m http.server 8080
+# 打开 http://localhost:8080/tool.html
+
+# 启动 React 前端
+cd frontend && npm run dev
+# 打开 http://localhost:5173
 ```
 
-## 前端技术栈
+## 核心文件
 
-- React 18 + TypeScript + Vite 5
-- `@supabase/supabase-js`（数据库直连，无后端）
-- `react-router-dom`（HashRouter，适配 GitHub Pages）
-- 全部手写样式，无 UI 框架
-
-## Supabase 数据库
-
-| 表 | 用途 | RLS |
-|------|------|-----|
-| `profiles` | 用户资料（is_admin, is_approved） | 管理员可改所有 |
-| `benchmark_items` | 基准价 497 条 | 已审批用户可读，管理员可写 |
-| `benchmark_notes` | 基准价说明 | 已审批用户可读 |
-| `projects` | 历史套价方案（groups_json 存完整清单） | 本人+管理员可读 |
-| `feedback` | 意见反馈 | 已登录可写 |
-| `ai_knowledge` | AI 知识库 | 管理员可写 |
-
-## 路由
-
-| 路由 | 页面 | 权限 |
-|------|------|------|
-| `/`（首页） | 基准价查询 | 登录用户 |
-| `/rules` | 基准价说明 | 登录用户 |
-| `/unpriced` | 补缺清单 | 管理员 |
-| `/login` | 登录 | - |
-| `/register` | 注册 | - |
-| `/approval` | 等待审批 | 待审批用户 |
-
-## 关键文件
-
-| 文件 | 说明 |
+| 文件 | 用途 |
 |------|------|
-| `frontend/src/api/index.ts` | 所有 Supabase 查询封装（auth / benchmark / projects） |
-| `frontend/src/lib/supabaseClient.ts` | Supabase 客户端初始化 |
-| `frontend/src/context/AuthContext.tsx` | 登录状态管理（监听 onAuthStateChange） |
-| `frontend/src/App.tsx` | 路由 + 导航布局 |
-| `frontend/src/pages/BenchmarkPage.tsx` | 基准价查询页 |
-| `frontend/src/pages/UnpricedItemsPage.tsx` | 补缺清单分析页 |
-| `data/seeds/benchmark_items_supabase.json` | 基准价 497 条（Supabase 导入格式） |
-| `supabase-schema.sql` | 全部建表 + RLS 脚本 |
-| `supabase-admin-rls.sql` | 管理员 RLS 扩展 |
+| `docs/tool.html` | **核心套价工具**（1600+ 行 V4 单页应用） |
+| `docs/index.html` | 登录/注册/管理员审批（旧版纯 HTML） |
+| `docs/admin.html` | 管理面板（材料库+知识库+用户审批） |
+| `frontend/src/pages/` | React 页面（基准价查询、辅材规则等） |
+| `frontend/src/api/index.ts` | React 版 Supabase 查询封装 |
+| `data/seeds/` | 种子数据（JSON/SQL 导入文件） |
 
-## 部署
+## 计价公式
 
-- **CI/CD**: GitHub Actions，push main 自动构建部署到 Pages
-- **构建**: `npm run build` → `frontend/dist/`
-- **密钥**: `frontend/.env`（已提交 git）
-  - `VITE_SUPABASE_URL=https://lnvtykghcpsjpwczbqsm.supabase.co`
-  - `VITE_SUPABASE_ANON_KEY=sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q`
+```
+综合单价 = 人工单价 + 主材费×(1+损耗率/100) + 辅材费
+定额合价 = 综合单价 × 工程量
+```
 
-## 当前进度 ✅
+表头列：`序号 | 项目名称 | 项目特征 | 单位 | 工程量 | 人工单价 | 主材费 | 损耗率 | 辅材费 | 管理费% | 利润% | 综合单价 | 备注 | 操作`
 
-- [x] 项目骨架 + GitHub Pages 自动部署
-- [x] Supabase Auth（邮箱登录/注册）
-- [x] 基准价库 497 条 + 查询页（班组/工种筛选、分页、搜索）
-- [x] RLS 权限控制（已审批用户可查、管理员可写）
-- [x] 基准价说明页
-- [x] 补缺清单分析（分析历史方案未套价项，按出现次数排序）
-- [x] 基准价扩展字段（auxiliary_price, material_price, material_loss_rate）
-- [x] 辅材规则库（auxiliary_rules 表 + 20 条种子数据）
-- [x] 辅材规则管理页面（增删改查）
-- [x] 基准价查询页显示人工/辅材/主材/损耗/综合单价
-- [x] CLAUDE.md 准确反映项目现状
+## Supabase
 
-## 待开发 🚧
+- URL: `https://lnvtykghcpsjpwczbqsm.supabase.co`
+- Key: `sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q`
+- RLS 使用 `public.is_admin()` 安全定义器函数避免递归
+- 前端通过 Fetch API 直连（不依赖 Supabase JS SDK）
 
-### 1. 恢复被覆盖的功能
-- [ ] 创建 `ToolPage.tsx`（iframe 嵌入 `tool.html`）
-- [ ] 将旧版 `tool.html` 放入 `frontend/public/`
-- [ ] 导航栏添加"套价工具 🔧"入口
-- [ ] 首页改为套价工具
-- [ ] `AdminUsersPage.tsx`（管理员批准/删除用户）
+## 数据库表
 
-### 2. 套价工具集成材料费
-- [ ] 套价界面中显示辅材费（优先取固定值，否则按规则计算）
-- [ ] 套价界面中显示主材费及损耗率
-- [ ] 综合单价 = 人工 + 辅材 + 主材×(1+损耗率)
+| 表 | 用途 |
+|------|------|
+| `profiles` | 用户资料（is_admin, is_approved） |
+| `benchmark_items` | 基准价 497 条 |
+| `projects` | 历史套价方案（groups_json 存完整清单） |
+| `feedback` | 意见反馈 |
+| `ai_knowledge` | AI 知识库（技巧/同义词/规则） |
+| `material_prices` | 材料价格库（主材+辅材） |
+| `auxiliary_rules` | 辅材计算规则（20 条种子数据） |
 
-### 3. 数据完善
-- [ ] 补充基准价的辅材/主材价格到 497 条数据
-- [ ] 验证辅材规则匹配准确性
+## 开发注意事项
 
-## 开发原则
-
-1. **权限可控** — 所有数据通过 RLS 保护，管理员审批用户
-2. **渐进增强** — 先有人工费用，再做材料费，再做 AI
-3. **GitHub Pages** — 纯静态，无后端服务器，依赖 Supabase
+1. **`docs/tool.html` JS 语法检查**：使用 `node -e "new vm.Script(js)"`，注意 localStorage 在 Node.js 中不存在，会误报
+2. **敏感数据不入 GitHub**：材料价格只存 Supabase，Excel 源文件本地保留
+3. **修改 tool.html 时注意**：
+   - `renderBoq()` 中不要调用 `renderBoq()` 递归（子目系数 onchange 已移除 renderBoq）
+   - 系数输入框 `onchange` 直接调用 `updCoef()` 或 `updField()`，不触发重新渲染
+   - 新增行字段需同步更新 `makeRow()`、`rowTotal()`、`renderBoq()`、`exportResult()`
+4. **辅材规则表**：`auxiliary_rules` 支持 `calc_method` 为 `fixed`（固定单价）、`thickness`（按厚度）、`ratio`（按比例）、`per_unit`（按面积系数）
