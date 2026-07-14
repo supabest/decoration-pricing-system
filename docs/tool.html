@@ -284,7 +284,21 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
       <button class="btn btn-sm" onclick="setAllOpen(false,false)" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">全折叠</button>
       <button class="btn btn-sm" onclick="saveProject()" style="color:var(--grn);border-color:var(--grn);padding:3px 10px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;font-weight:600">💾 保存方案</button>
       <button class="btn btn-sm" onclick="openHistory()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">📂 历史方案</button>
+      <button class="btn btn-sm" id="pricePanelBtn" onclick="togglePricePanel()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)" title="辅材材料价格">💰 辅材价格</button>
     </div>
+    <!-- 💰 辅材价格面板（浮动可拖拽） -->
+    <div id="pricePanel" class="price-panel hidden" style="position:fixed;top:80px;right:20px;width:420px;max-height:70vh;background:var(--bg2);border:2px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:999;overflow:hidden;font-size:12px">
+      <div id="pricePanelHdr" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg1);border-bottom:1px solid var(--border);cursor:move;user-select:none">
+        <span style="font-weight:600;color:var(--tx1)">💰 辅材材料价格</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="resetAllPrices()" style="font-size:10px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:transparent;cursor:pointer;color:var(--tx3)" title="清空所有覆盖价，恢复默认">恢复默认</button>
+          <button onclick="togglePricePanel()" style="font-size:14px;padding:0 4px;border:none;background:transparent;cursor:pointer;color:var(--tx3)">✕</button>
+        </div>
+      </div>
+      <div style="padding:8px 14px;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--border)">💡 填「我的价格」覆盖默认信息价，留空则用默认价。改价后自动重算。</div>
+      <div id="pricePanelBody" style="overflow-y:auto;max-height:calc(70vh - 90px);padding:4px 8px"></div>
+    </div>
+
     <div class="boq-wrap" id="boqWrap">
       <div class="upload-area" id="uploadArea"
         ondragover="uDragover(event)" ondrop="uDrop(event)" ondragleave="uDragleave(event)" onclick="importBoq()">
@@ -434,7 +448,8 @@ async function loadFromSupabase() {
     DB = {};
     items.forEach(it => {
       if (!DB[it.trade_team]) DB[it.trade_team] = [];
-      DB[it.trade_team].push({id:it.internal_code, trade:it.work_type||'', name:it.item_name, spec:it.spec||'', unit:it.unit, price:parseFloat(it.unit_price), remark:it.remark||''});
+      DB[it.trade_team].push({id:it.internal_code, trade:it.work_type||'', name:it.item_name, spec:it.spec||'', unit:it.unit, price:parseFloat(it.unit_price), remark:it.remark||'',
+        auxType: it.aux_rule_type || '', auxFixedK: parseFloat(it.aux_fixed_k) || 0, auxRateDetail: it.aux_rate_detail || null});
     });
     ALL = [];
     Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
@@ -605,7 +620,7 @@ function updCoef(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find
 function updConv(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find(s=>s.bid===bid&&s.bsh===bsh); if(s){s.conv=parseFloat(val)||1.0;updateSum();} }
 
 // ═══════════ PRICING ═══════════
-function getBench(id,sh) { return DB[sh]?.find(i=>i.id===id); }
+function getBench(id,sh) { return (typeof DB!=='undefined'&&DB[sh])?DB[sh].find(i=>i.id===id):null; }
 function effPrice(sub) {
   const it=getBench(sub.bid,sub.bsh);
   return it ? it.price*sub.coef*globalCoef*(sub.conv||1.0) : 0;
@@ -619,6 +634,242 @@ function compUnitPrice(r) { const lab=rowUnitPrice(r)||0; const mat=(r.matPrice&
 function rowMatCost(r) { return (parseFloat(r.matPrice)||0)*(1+(parseFloat(r.wasteRate)||0)/100); }
 function rowAuxCost(r) { return parseFloat(r.auxCost)||0; }
 function rowTotal(r) { const p=rowUnitPrice(r),q=parseFloat(r.qty); const lab=(p!==null&&!isNaN(q))?p*q:0; const mat=(r.matPrice&&r.matPrice>0)?rowMatCost(r)*q:0; const aux=(r.auxCost&&r.auxCost>0)?parseFloat(r.auxCost)*q:0; return lab+mat+aux; }
+// ═══════════ AUXILIARY PRICE ENGINE ═══════════
+// 辅材计价引擎：从 benchmark_items 的 aux 配方 + material_prices 信息价实时计算
+let priceLib = {};           // 默认信息价 {materialName: {price, unit}}
+let userPriceOverrides = {}; // 用户覆盖价 {materialName: price}（按项目加载/保存）
+
+async function loadMaterialPrices() {
+  try {
+    const items = await _get('material_prices', {order:{col:'effective_month',asc:false}, limit:200});
+    if (!items || !items.length) return;
+    // 取每材料最新月份价
+    const latest = {};
+    items.forEach(it => {
+      if (!latest[it.name] || it.effective_month > latest[it.name].effective_month) {
+        latest[it.name] = {price: parseFloat(it.price)||0, unit: it.unit||''};
+      }
+    });
+    priceLib = latest;
+  } catch(e) { console.warn('材料信息价加载失败', e); }
+}
+
+function getMaterialPrice(name) {
+  if (userPriceOverrides[name] !== undefined && userPriceOverrides[name] !== '') return parseFloat(userPriceOverrides[name]);
+  if (priceLib[name]) return priceLib[name].price;
+  return 0;
+}
+
+function computeAuxForRow(r) {
+  if (!r || !r.subs || !r.subs.length) return {total:0, fixedK:0, rates:[], detail:null};
+  const sub = r.subs[0];
+  const bench = getBench(sub.bid, sub.bsh);
+  if (!bench || !bench.auxType) return {total:0, fixedK:0, rates:[], detail:null};
+  const fixedK = bench.auxFixedK || 0;
+  let rates = [], rateSum = 0;
+  const rd = bench.auxRateDetail;
+  if (rd && rd.type === 'RATE') {
+    const p = getMaterialPrice(rd.materialName);
+    const cost = p * (rd.consume||0);
+    rates.push({name: rd.materialName, unit: rd.unit||'', price: p, consume: rd.consume, cost});
+    rateSum += cost;
+  } else if (rd && rd.type === 'GROUP') {
+    (rd.items||[]).forEach(it => {
+      const p = getMaterialPrice(it.name);
+      const cost = p * (it.consume||0);
+      rates.push({name: it.name, unit: it.unit||'', price: p, consume: it.consume, cost});
+      rateSum += cost;
+    });
+  }
+  return {total: fixedK + rateSum, fixedK, rates, detail: rd};
+}
+
+function recomputeAllAux() {
+  getAllRows().forEach(r => {
+    const aux = computeAuxForRow(r);
+    r.auxCost = aux.total;
+  });
+}
+
+// ═══════════ 💰 辅材价格面板 ═══════════
+function buildMaterialList() {
+  const mats = {}; // name -> {unit, defaultPrice}
+  // 从 DB benchmark 中收集所有有 aux_rate_detail 的材料
+  if (typeof DB !== 'undefined') {
+    Object.values(DB).forEach(items => {
+      (items||[]).forEach(it => {
+        if (!it.auxRateDetail) return;
+        const rd = it.auxRateDetail;
+        if (rd.type === 'RATE' && rd.materialName) {
+          if (!mats[rd.materialName]) mats[rd.materialName] = {unit: rd.unit||'', defaultPrice: 0};
+        } else if (rd.type === 'GROUP' && rd.items) {
+          rd.items.forEach(item => {
+            if (!mats[item.name]) mats[item.name] = {unit: item.unit||'', defaultPrice: 0};
+          });
+        }
+      });
+    });
+  }
+  // 填入默认信息价
+  Object.keys(mats).forEach(name => {
+    if (priceLib[name]) mats[name].defaultPrice = priceLib[name].price;
+  });
+  return mats;
+}
+
+function renderPricePanel() {
+  const el = document.getElementById('pricePanelBody');
+  const mats = buildMaterialList();
+  const names = Object.keys(mats).sort();
+  if (!names.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx3)">暂无辅材数据（需加载基准价）</div>'; return; }
+  let changedCount = 0, html = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--tx3)"><th style="text-align:left;padding:6px 4px">材料名称</th><th style="width:36px;padding:6px 2px;text-align:center">单位</th><th style="width:58px;padding:6px 2px;text-align:right">默认价</th><th style="width:68px;padding:6px 2px;text-align:right">我的价格</th></tr></thead><tbody>';
+  names.forEach(name => {
+    const m = mats[name];
+    const up = userPriceOverrides[name];
+    const hasOverride = up !== undefined && up !== '';
+    if (hasOverride) changedCount++;
+    html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px;color:var(--tx2)">'+esc(name)+'</td>' +
+      '<td style="padding:4px 2px;text-align:center;color:var(--tx3)">'+esc(m.unit)+'</td>' +
+      '<td style="padding:4px 2px;text-align:right;color:var(--tx3)">'+fmt(m.defaultPrice)+'</td>' +
+      '<td style="padding:2px"><input class="price-override-inp" style="width:100%;box-sizing:border-box;padding:2px 4px;text-align:right;border:1px solid '+(hasOverride?'var(--accent)':'var(--border)')+';border-radius:4px;background:var(--bg1);color:var(--tx1);font-size:11px" type="number" min="0" step="any" value="'+(up!==undefined?up:'')+'" placeholder="'+fmt(m.defaultPrice)+'" data-mat="'+esc(name)+'" onchange="onPricePanelChange(this)"></td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="padding:8px 4px;font-size:10px;color:var(--tx3);border-top:1px solid var(--border);margin-top:4px">已修改 <b style="color:var(--accent)">'+changedCount+'</b> 种材料价格';
+  if (changedCount>0) html += '（影响所有引用此材料的清单行）';
+  html += '</div>';
+  el.innerHTML = html;
+  // 更新按钮状态
+  const btn = document.getElementById('pricePanelBtn');
+  if (changedCount > 0) { btn.style.color = 'var(--accent)'; btn.textContent = '💰 辅材价格 ('+changedCount+')'; }
+  else { btn.style.color = 'var(--tx2)'; btn.textContent = '💰 辅材价格'; }
+}
+
+function togglePricePanel() {
+  const p = document.getElementById('pricePanel');
+  p.classList.toggle('hidden');
+  if (!p.classList.contains('hidden')) renderPricePanel();
+}
+
+function onPricePanelChange(inp) {
+  const name = inp.dataset.mat;
+  const val = inp.value.trim();
+  if (val === '') {
+    delete userPriceOverrides[name];
+  } else {
+    userPriceOverrides[name] = parseFloat(val);
+  }
+  recomputeAllAux();
+  renderBoq();
+  renderPricePanel();
+}
+
+function resetAllPrices() {
+  if (!Object.keys(userPriceOverrides).length) return;
+  if (!confirm('确认清空所有自定义价格，恢复使用默认信息价？')) return;
+  userPriceOverrides = {};
+  recomputeAllAux();
+  renderBoq();
+  renderPricePanel();
+  toast('✓ 已恢复默认信息价');
+}
+
+// 面板拖拽
+(function() {
+  let dragEl = null, dragX=0, dragY=0;
+  document.addEventListener('mousedown', function(e) {
+    const hdr = e.target.closest('#pricePanelHdr');
+    if (hdr) { dragEl = document.getElementById('pricePanel'); dragX = e.clientX - dragEl.offsetLeft; dragY = e.clientY - dragEl.offsetTop; }
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragEl) return;
+    dragEl.style.left = Math.max(0, Math.min(window.innerWidth-200, e.clientX - dragX)) + 'px';
+    dragEl.style.top = Math.max(0, Math.min(window.innerHeight-100, e.clientY - dragY)) + 'px';
+  });
+  document.addEventListener('mouseup', function() { dragEl = null; });
+})();
+
+// 旧版 keyword 规则引擎保留（兜底）
+let auxRulesCache = [];
+async function loadAuxRules() {
+  const token = localStorage.getItem('sb-access-token');
+  if (!token) return;
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/auxiliary_rules?select=*&order=sort_order.asc', {
+      headers: {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token}
+    });
+    if (r.ok) auxRulesCache = await r.json();
+  } catch(e) { console.warn('辅材规则加载失败', e); }
+}
+
+/**
+ * 根据规则和材料市场价计算辅材单价（元/单位）
+ * @param {object} rule - 规则对象（含 calc_method, rule_config, unit_price, params 等）
+ * @param {object} priceLib - 材料市场价库 {materialName: price}，可选
+ * @returns {number} 辅材单价
+ */
+function calcAuxFromRule(rule, priceLib={}) {
+  if (!rule) return 0;
+  const method = rule.calc_method || '';
+  const cfg = rule.rule_config || {};
+
+  switch (method) {
+    case 'FIXED':
+      // 固定辅材价，如 成品保护 = 4.79 元/m²
+      return parseFloat(cfg.fixedPrice) || 0;
+
+    case 'RATE':
+      // 单价×消耗量：材料市场价 × 消耗量
+      // 优先从 priceLib 取价，fallback 到 rule_config.price
+      const matName = cfg.materialName || rule.material_name || '';
+      const matPrice = priceLib[matName] !== undefined
+        ? parseFloat(priceLib[matName])
+        : (parseFloat(cfg.price) || 0);
+      const consume = parseFloat(cfg.consume) || 0;
+      return matPrice * consume;
+
+    case 'GROUP':
+      // 多辅材汇总：Σ(各辅材市场价 × 消耗量)
+      const items = cfg.items || [];
+      if (!items.length) return 0;
+      return items.reduce((sum, item) => {
+        const ip = priceLib[item.name] !== undefined
+          ? parseFloat(priceLib[item.name])
+          : (parseFloat(item.price) || 0);
+        return sum + ip * (parseFloat(item.consume) || 0);
+      }, 0);
+
+    case 'FORMULA':
+      // 公式计算：替换变量名后 eval
+      const expr = cfg.expression || '';
+      if (!expr) return 0;
+      try {
+        // 构建变量替换：胶水*0.2 → 8*0.2
+        const vars = cfg.variables || {};
+        let ev = expr;
+        // 按变量名长度从长到短排序替换，避免部分匹配
+        const varNames = Object.keys(vars).sort((a,b) => b.length - a.length);
+        for (const vn of varNames) {
+          const vp = priceLib[vn] !== undefined
+            ? parseFloat(priceLib[vn])
+            : (parseFloat(vars[vn].price) || 0);
+          ev = ev.split(vn).join('('+vp+')');
+        }
+        // 安全求值（仅允许数字和 +-*/()）
+        if (/^[\d+\-*/(). ]+$/.test(ev)) {
+          return eval(ev); // eslint-disable-line no-eval
+        }
+        return 0;
+      } catch(e) {
+        console.warn('辅材公式计算失败:', expr, e);
+        return 0;
+      }
+
+    default:
+      // 兼容旧数据：直接取 auxCost / unit_price
+      return parseFloat(rule.auxCost) || parseFloat(rule.unit_price) || 0;
+  }
+}
+
 function fmt(v,dec=2) { return (v===null||v===undefined)?'—':v.toLocaleString('zh-CN',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
 function secTotal(s) { return s.rows.reduce((a,r)=>a+(rowTotal(r)||0),0); }
 function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
@@ -690,7 +941,7 @@ function renderBoq() {
           '<td class="r-price r">'+fmt(up)+'</td>' +
           '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></td>' +
           '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
-          '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.auxCost+'" placeholder="0" title="辅材费" onchange="updField('+r.id+',\'auxCost\',this.value)"></td>' +
+         '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
           '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.1" value="'+(r.mgmtRate||0)+'" title="管理费%" onchange="updField('+r.id+',\'mgmtRate\',this.value)"></td>' +
           '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.1" value="'+(r.profitRate||0)+'" title="利润%" onchange="updField('+r.id+',\'profitRate\',this.value)"></td>' +
           '<td class="r-total r">'+fmt(compUnitPrice(r))+'</td>' +
@@ -699,7 +950,17 @@ function renderBoq() {
           '</tr>';
 
         if (r.open) {
-          html += '<tr><td colspan="12" class="sub-wrap-td" style="padding:8px 16px;background:var(--bg4)"><div style="display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap"><span style="font-weight:600;color:var(--tx2)">材料明细</span><span>主材: <input class="ri ri-sm" style="width:80px" value="'+esc(r.matName||'')+'" placeholder="名称" onchange="updField('+r.id+',\'matName\',this.value)"> <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="单价" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></span><span>损耗率: <input class="cof-i" style="width:50px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" onchange="updField('+r.id+',\'wasteRate\',this.value)">%</span><span>辅材费: <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.auxCost+'" placeholder="0" title="辅材费" onchange="updField('+r.id+',\'auxCost\',this.value)"></span></div></td></tr>';
+          let auxInfo = computeAuxForRow(r); r.auxCost = auxInfo.total;
+          let auxHtml = '';
+          if (auxInfo.detail) {
+            let parts = [];
+            if (auxInfo.fixedK > 0) parts.push('<span style="color:var(--tx3)">固定K:</span> <b>'+fmt(auxInfo.fixedK)+'</b>');
+            auxInfo.rates.forEach(m => {
+              parts.push('<span style="color:var(--tx3)">'+esc(m.name)+':</span> <b>'+fmt(m.price)+'</b>'+esc(m.unit)+' × <b>'+m.consume.toFixed(4)+'</b> = <b>'+fmt(m.cost)+'</b>');
+            });
+            auxHtml = '<div style="font-size:11px;line-height:1.6;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border)"><span style="font-weight:600;color:var(--tx2)">辅材明细:</span> '+parts.join(' + ')+' = <b style="color:var(--grn)">'+fmt(auxInfo.total)+'</b> 元/'+(r.unit||'单位')+'</div>';
+          }
+          html += '<tr><td colspan="12" class="sub-wrap-td" style="padding:8px 16px;background:var(--bg4)"><div style="display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap"><span style="font-weight:600;color:var(--tx2)">材料明细</span><span>主材: <input class="ri ri-sm" style="width:80px" value="'+esc(r.matName||'')+'" placeholder="名称" onchange="updField('+r.id+',\'matName\',this.value)"> <input class="cof-i" style="width:60px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="单价" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></span><span>损耗率: <input class="cof-i" style="width:50px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" onchange="updField('+r.id+',\'wasteRate\',this.value)">%</span><span>辅材: <b style="color:var(--tx2)">'+fmt(auxInfo.total)+'</b> 元/'+(r.unit||'单位')+(auxInfo.detail?' <span style="font-size:10px;color:var(--accent)">(自动套用)</span>':'')+'</span></div>'+auxHtml+'</td></tr>';
           html += '<tr><td colspan="12" class="sub-wrap-td"><table class="sub-inner">';
           if (r.subs.length) {
             html += '<tr class="sub-th"><th style="width:80px">编号</th><th>子目名称</th>' +
@@ -1597,6 +1858,7 @@ async function saveProject() {
     proj_date: document.getElementById('projDate').value,
     hourly_rate: parseFloat(document.getElementById('hourlyRateInput')?.value || 350),
     groups_json: JSON.parse(JSON.stringify(groups)),
+    price_overrides: JSON.parse(JSON.stringify(userPriceOverrides)),
     row_count: allRows.length,
     priced_count: allRows.filter(r=>r.subs.length>0).length,
   };
@@ -1655,6 +1917,7 @@ async function restoreProject(id) {
   document.getElementById('projDate').value = snap.proj_date || '';
   document.getElementById('coefBadge').textContent = '×' + globalCoef.toFixed(2);
   if (snap.hourly_rate) { const inp = document.getElementById('hourlyRateInput'); if(inp) inp.value = snap.hourly_rate; }
+  if (snap.price_overrides) { userPriceOverrides = snap.price_overrides; recomputeAllAux(); }
   let maxId = 0;
   groups.forEach(g => { maxId = Math.max(maxId, g.id); g.sections?.forEach(s => { maxId = Math.max(maxId, s.id); s.rows?.forEach(r => { maxId = Math.max(maxId, r.id); }); }); });
   uid = maxId + 1;
@@ -1713,7 +1976,11 @@ function openUnmatchedModal() {
       }
     } catch(e) {}
   }
-  try { init(); } catch(e) { alert('启动失败: '+e.message); }
+  try {
+    await loadAuxRules();    // 旧版 keyword 规则
+    await loadMaterialPrices(); // 新版信息价库
+    init();
+  } catch(e) { alert('启动失败: '+e.message); }
 })();
 </script>
 
