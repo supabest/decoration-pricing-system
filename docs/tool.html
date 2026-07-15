@@ -878,6 +878,7 @@ function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
 function renderBoq() {
   const main = document.getElementById('boqMain');
   if (!groups.length) { updateSum(); return; }
+  recomputeAllAux();  // 预计算所有行辅材费，确保 compUnitPrice 读到非0值
   let html = '';
   let globalIdx = 0;
 
