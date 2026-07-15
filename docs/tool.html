@@ -272,6 +272,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
     <div class="proj-bar" style="background:var(--bg3);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--tx2);font-weight:500">项目名称</span><input class="pi" id="projName" type="text" placeholder="请输入项目名称" style="min-width:160px;padding:4px 8px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;outline:none"></div>
       <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--tx2);font-weight:500">类型系数</span><span class="coef-badge" id="coefBadge" onclick="openCoefModal()" style="background:var(--yel-d);border:1.5px solid var(--yel);color:var(--yel);font-size:11px;padding:3px 9px;border-radius:5px;font-family:var(--mono);cursor:pointer;font-weight:700">×1.00</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:11px;color:var(--tx2);font-weight:500">管理费</span><input class="pi" id="mgmtRateInp" type="number" min="0" max="100" step="0.1" value="0" style="width:50px;padding:3px 4px;border-radius:6px;border:1.5px solid var(--border);font-size:11px;text-align:right" oninput="onGlobalRateChange()">%<span class="pi" style="font-size:11px;color:var(--tx2);font-weight:500;margin:0 4px" title="管理费 = 人工单价 × 管理费率%">ℹ️</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:11px;color:var(--tx2);font-weight:500">利润</span><input class="pi" id="profitRateInp" type="number" min="0" max="100" step="0.1" value="0" style="width:50px;padding:3px 4px;border-radius:6px;border:1.5px solid var(--border);font-size:11px;text-align:right" oninput="onGlobalRateChange()">%<span class="pi" style="font-size:11px;color:var(--tx2);font-weight:500;margin:0 4px" title="利润 = 人工单价 × 利润率%">ℹ️</span></div>
       <!-- 保留隐藏元素供JS读取 -->
       <input type="hidden" id="projTeam" value="">
       <input type="hidden" id="projDate" value="">
@@ -466,6 +468,12 @@ let groups = [];
 let uid = 1;
 let shFilter = 'all';
 let globalCoef = 1.0, pendCoef = 1.0;
+let globalMgmtRate = 0, globalProfitRate = 0;  // 管理费率%、利润率%（全局统一）
+function onGlobalRateChange() {
+  globalMgmtRate = parseFloat(document.getElementById('mgmtRateInp').value) || 0;
+  globalProfitRate = parseFloat(document.getElementById('profitRateInp').value) || 0;
+  renderBoq();
+}
 let hourlyRate = 350;  // 时工单价（元/工日），可调整
 let drag = null;
 let pickerRowId = null;
@@ -577,7 +585,7 @@ function findRow(rid) {
 function makeRow(d={}) {
   return {id:uid++,name:d.name||'',spec:d.spec||'',unit:d.unit||'',
     qty:d.qty||'',remark:d.remark||'',open:false,subs:[],aiNote:null,hourlyMode:false,
-    matName:'',matPrice:0,wasteRate:5,auxCost:0,mgmtRate:0,profitRate:0};
+    matName:'',matPrice:0,wasteRate:5,auxCost:0};
 }
 
 // ═══════════ GROUP/SECTION/ROW OPS ═══════════
@@ -630,10 +638,10 @@ function rowUnitPrice(r) {
   if (!r.subs.length) return null;
   return r.subs.reduce((s,sub)=>s+effPrice(sub),0);
 }
-function compUnitPrice(r) { const lab=rowUnitPrice(r)||0; const mat=(r.matPrice&&r.matPrice>0)?(parseFloat(r.matPrice)||0)*(1+(parseFloat(r.wasteRate)||0)/100):0; const aux=parseFloat(r.auxCost)||0; return lab+mat+aux; }
+function compUnitPrice(r) { const lab=rowUnitPrice(r)||0; const mat=(r.matPrice&&r.matPrice>0)?(parseFloat(r.matPrice)||0)*(1+(parseFloat(r.wasteRate)||0)/100):0; const aux=parseFloat(r.auxCost)||0; const mgmt=lab*(globalMgmtRate/100); const profit=lab*(globalProfitRate/100); return lab+mat+aux+mgmt+profit; }
 function rowMatCost(r) { return (parseFloat(r.matPrice)||0)*(1+(parseFloat(r.wasteRate)||0)/100); }
 function rowAuxCost(r) { return parseFloat(r.auxCost)||0; }
-function rowTotal(r) { const p=rowUnitPrice(r),q=parseFloat(r.qty); const lab=(p!==null&&!isNaN(q))?p*q:0; const mat=(r.matPrice&&r.matPrice>0)?rowMatCost(r)*q:0; const aux=(r.auxCost&&r.auxCost>0)?parseFloat(r.auxCost)*q:0; return lab+mat+aux; }
+function rowTotal(r) { const p=rowUnitPrice(r),q=parseFloat(r.qty); const lab=(p!==null&&!isNaN(q))?p*q:0; const mat=(r.matPrice&&r.matPrice>0)?rowMatCost(r)*q:0; const aux=(r.auxCost&&r.auxCost>0)?parseFloat(r.auxCost)*q:0; const mgmt=(p!==null&&!isNaN(q))?p*globalMgmtRate/100*q:0; const profit=(p!==null&&!isNaN(q))?p*globalProfitRate/100*q:0; return lab+mat+aux+mgmt+profit; }
 // ═══════════ AUXILIARY PRICE ENGINE ═══════════
 // 辅材计价引擎：从 benchmark_items 的 aux 配方 + material_prices 信息价实时计算
 let priceLib = {};           // 默认信息价 {materialName: {price, unit}}
@@ -894,7 +902,7 @@ function renderBoq() {
     html += '<table class="boq-table"><thead><tr>' +
       '<th class="c-no c">序号</th><th class="c-nm">项目名称</th><th class="c-sp">项目特征</th>' +
       '<th class="c-un c">单位</th><th class="c-qty r">工程量</th>' +
-      '<th class="c-pr r">人工单价</th><th class="c-mat r">主材费</th><th class="c-waste r">损耗率</th><th class="c-aux r">辅材费</th><th class="c-mgmt r">管理费%</th><th class="c-prof r">利润%</th><th class="c-usp r">综合单价</th>' +
+      '<th class="c-pr r">人工单价</th><th class="c-mat r">主材费</th><th class="c-waste r">损耗率</th><th class="c-aux r">辅材费</th><th class="c-usp r">综合单价</th>' +
       '<th class="c-re">备注</th><th class="c-ac c">操作</th></tr></thead><tbody>';
 
     g.sections.forEach(s => {
@@ -943,8 +951,6 @@ function renderBoq() {
           '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></td>' +
           '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
          '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
-          '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.1" value="'+(r.mgmtRate||0)+'" title="管理费%" onchange="updField('+r.id+',\'mgmtRate\',this.value)"></td>' +
-          '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.1" value="'+(r.profitRate||0)+'" title="利润%" onchange="updField('+r.id+',\'profitRate\',this.value)"></td>' +
           '<td class="r-total r">'+fmt(compUnitPrice(r))+'</td>' +
           '<td><input class="ri ri-sm" value="'+esc(r.remark)+'" placeholder="备注" onchange="updField('+r.id+',\'remark\',this.value)"></td>' +
           '<td class="c"><button class="btn btn-del" onclick="delRow('+r.id+')">✕</button></td>' +
@@ -1860,6 +1866,8 @@ async function saveProject() {
     hourly_rate: parseFloat(document.getElementById('hourlyRateInput')?.value || 350),
     groups_json: JSON.parse(JSON.stringify(groups)),
     price_overrides: JSON.parse(JSON.stringify(userPriceOverrides)),
+    mgmt_rate: globalMgmtRate,
+    profit_rate: globalProfitRate,
     row_count: allRows.length,
     priced_count: allRows.filter(r=>r.subs.length>0).length,
   };
@@ -1919,6 +1927,8 @@ async function restoreProject(id) {
   document.getElementById('coefBadge').textContent = '×' + globalCoef.toFixed(2);
   if (snap.hourly_rate) { const inp = document.getElementById('hourlyRateInput'); if(inp) inp.value = snap.hourly_rate; }
   if (snap.price_overrides) { userPriceOverrides = snap.price_overrides; recomputeAllAux(); }
+  if (snap.mgmt_rate !== undefined) { globalMgmtRate = parseFloat(snap.mgmt_rate)||0; document.getElementById('mgmtRateInp').value = globalMgmtRate; }
+  if (snap.profit_rate !== undefined) { globalProfitRate = parseFloat(snap.profit_rate)||0; document.getElementById('profitRateInp').value = globalProfitRate; }
   let maxId = 0;
   groups.forEach(g => { maxId = Math.max(maxId, g.id); g.sections?.forEach(s => { maxId = Math.max(maxId, s.id); s.rows?.forEach(r => { maxId = Math.max(maxId, r.id); }); }); });
   uid = maxId + 1;
