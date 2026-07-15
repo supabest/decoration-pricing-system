@@ -67,7 +67,58 @@ cd frontend && npm run dev
 | `material_prices` | 材料价格库（主材+辅材） |
 | `auxiliary_rules` | 辅材计算规则（20 条种子数据） |
 
-## 开发注意事项
+## 辅材套价功能（feat/material-pricing 开发中）
+
+**当前进度**：已完成阶段 1+2，待做阶段 3。
+
+### 已完成
+
+- **阶段 1**：从 `基准价2024（格式化）.xlsx` 解析 254 条辅材规则（FIXED:179 / RATE:79 / GROUP:2），语义匹配到 497 条 benchmark_items。生成 SQL 迁移文件：
+  - `data/seeds/migration_aux_fields.sql` — benchmark_items 加 3 个字段（`aux_rule_type`/`aux_fixed_k`/`aux_rate_detail`）
+  - `data/seeds/seed_benchmark_aux.sql` — 497 条辅材配方灌入
+  - `data/seeds/seed_material_prices.sql` — 建 `material_prices` 表 + 21 种初始信息价
+
+- **阶段 2**：`docs/tool.html` 💰辅材价格面板已完成：
+  - `loadFromSupabase()` 带出 aux 字段；`loadMaterialPrices()` 加载信息价
+  - `computeAuxForRow(r)` 实时算辅材：`fixedK + Σ(priceLib[材料名] × consume)`，只读显示
+  - 展开行显示辅材明细（固定K + 各材料价×消耗量 = 合计）
+  - 💰可拖拽浮动面板：21 种材料，"默认信息价"+"我的价格"覆盖，改价联动全部行重算
+  - `userPriceOverrides` 按项目保存/恢复（`price_overrides` 字段存在 projects 表）
+  - 旧 keyword 版 `auxiliary_rules` + `calcAuxFromRule` 保留为兜底
+
+- **生成脚本**（可重复运行）：
+  - `scripts/match_aux_to_benchmark.py` — 语义匹配 Excel→benchmark
+  - `scripts/gen_aux_migration.py` — 从审核 Excel 生成 SQL，含材料名归并
+
+### 数据架构
+
+```
+benchmark_items (497条)           material_prices (21种, 按月版本化)
+├─ aux_rule_type                 ├─ name, unit
+├─ aux_fixed_k                   ├─ price, effective_month
+└─ aux_rate_detail (配方JSON)    └─ source
+
+tool.html 计算: 辅材 = fixedK + Σ(getMaterialPrice(材料) × consume)
+                getMaterialPrice: 用户覆盖价 > 信息价 > 0
+```
+
+### 待做：阶段 3
+
+**admin.html 信息价录入页**（管理员每月更新 21 种辅材默认价）：
+- 月份选择 + 21 种材料表格（默认价 + 本月输入）
+- "复制上月价格"按钮、从 Excel 粘贴
+- 一键保存本月信息价到 `material_prices` 表
+- 位置：admin.html 新增 tab 页
+
+### ⚠️ 部署前必须先执行
+
+在 Supabase SQL Editor 按顺序执行：
+```
+1) data/seeds/migration_aux_fields.sql    (ALTER TABLE)
+2) data/seeds/seed_material_prices.sql    (建表 + 21 种信息价)
+3) data/seeds/seed_benchmark_aux.sql      (497 条灌入)
+```
+不跑这三个 SQL 的话，tool.html 辅材永远是 0。
 
 1. **`docs/tool.html` JS 语法检查**：使用 `node -e "new vm.Script(js)"`，注意 localStorage 在 Node.js 中不存在，会误报
 2. **敏感数据不入 GitHub**：材料价格只存 Supabase，Excel 源文件本地保留
@@ -75,4 +126,8 @@ cd frontend && npm run dev
    - `renderBoq()` 中不要调用 `renderBoq()` 递归（子目系数 onchange 已移除 renderBoq）
    - 系数输入框 `onchange` 直接调用 `updCoef()` 或 `updField()`，不触发重新渲染
    - 新增行字段需同步更新 `makeRow()`、`rowTotal()`、`renderBoq()`、`exportResult()`
-4. **辅材规则表**：`auxiliary_rules` 支持 `calc_method` 为 `fixed`（固定单价）、`thickness`（按厚度）、`ratio`（按比例）、`per_unit`（按面积系数）
+4. **辅材规则表 V2**（`auxiliary_rules`）：
+   - `calc_method` 为 `FIXED`（固定辅材价）、`RATE`（材料×消耗量）、`GROUP`（多辅材汇总）、`FORMULA`（公式计算）
+   - `rule_config` JSONB 列存储规则配置，格式见 `data/seeds/auxiliary_rules_seed_v2.json`
+   - 前端通过 `calcAuxFromRule()` 函数计算辅材单价（位于 `rowTotal()` 后）
+   - 启动时通过 `loadAuxRules()` 自动缓存规则到 `auxRulesCache`
