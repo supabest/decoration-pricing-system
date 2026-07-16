@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   base: '/decoration-pricing-system/',
   server: {
-    port: 5173,
+    port: 8080,
   },
 })
