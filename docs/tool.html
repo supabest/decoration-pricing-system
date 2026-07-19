@@ -235,7 +235,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
     <button class="btn btn-sm" onclick="importBoq()">📂 导入清单</button>
     <button class="btn btn-sm" onclick="addBoqRow()">＋ 新增清单行</button>
     <button class="btn btn-sm" id="aiBtn" onclick="startAiPricing()" style="background:linear-gradient(135deg,#2b5ea7,#1d6fa5);color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;font-family:inherit">✨ AI 一键套价</button>
-    <button class="btn btn-sm" onclick="exportResult()" style="background:var(--grn-d);border-color:var(--grn);color:var(--grn);font-weight:600">⬇ 导出套价表</button>
+    <button class="btn btn-sm" onclick="showExportModal()" style="background:var(--grn-d);border-color:var(--grn);color:var(--grn);font-weight:600">⬇ 导出套价表</button>
     <button class="btn btn-sm" onclick="document.getElementById('benchFileIn').click()">🔄 更新基准价库</button>
     <button class="btn btn-sm" onclick="document.getElementById('knowledgeFileIn').click()">🧠 知识库</button>
     <button class="btn btn-sm" onclick="openBenchNote()" title="查看基准价编制说明">📋 基准价说明</button>
@@ -292,6 +292,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
       <button class="btn btn-sm" onclick="saveProject()" style="color:var(--grn);border-color:var(--grn);padding:3px 10px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;font-weight:600">💾 保存方案</button>
       <button class="btn btn-sm" onclick="openHistory()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)">📂 历史方案</button>
       <button class="btn btn-sm" id="pricePanelBtn" onclick="togglePricePanel()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)" title="辅材材料价格">💰 辅材价格</button>
+      <button class="btn btn-sm" onclick="openMainMatPanel()" style="padding:3px 8px;font-size:11px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:transparent;color:var(--tx2)" title="主材选品">📦 主材选品</button>
     </div>
     <!-- 💰 辅材价格面板（浮动可拖拽） -->
     <div id="pricePanel" class="price-panel hidden" style="position:fixed;top:80px;right:20px;width:420px;max-height:70vh;background:var(--bg2);border:2px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:999;overflow:hidden;font-size:12px">
@@ -305,6 +306,93 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
       <div style="padding:8px 14px;font-size:10px;color:var(--tx3);border-bottom:1px solid var(--border)">💡 填「我的价格」覆盖默认信息价，留空则用默认价。改价后自动重算。</div>
       <div id="pricePanelBody" style="overflow-y:auto;max-height:calc(70vh - 90px);padding:4px 8px"></div>
     </div>
+
+    <!-- 📦 主材选品弹窗 -->
+    <div id="mainMatModal" class="modal-overlay hidden" onclick="if(event.target===this)closeMainMatPanel()" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:none;align-items:center;justify-content:center">
+      <div class="modal-box" style="background:var(--bg2);border-radius:12px;padding:16px 20px;max-width:660px;width:94%;max-height:84vh;box-shadow:0 8px 30px rgba(0,0,0,.2);border:2px solid var(--border);display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0">
+          <span style="font-weight:700;font-size:14px;color:var(--tx1)">📦 主材选品</span>
+          <button onclick="closeMainMatPanel()" style="font-size:16px;padding:0 4px;border:none;background:transparent;cursor:pointer;color:var(--tx3)">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-shrink:0">
+          <label style="font-size:12px;font-weight:600;white-space:nowrap">品类:</label>
+          <select id="mmCat" onchange="onMainMatCatChange()" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg1);color:var(--tx1);flex:1;min-width:120px">
+            <option value="">— 全部品类 —</option>
+          </select>
+          <input id="mmSearch" type="text" placeholder="🔍 搜索" oninput="renderMainMatList()" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg1);color:var(--tx1);width:100px">
+        </div>
+        <div id="mmListWrap" style="overflow-y:auto;flex:1;min-height:180px;max-height:56vh;border:1px solid var(--border);border-radius:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:11px" id="mmTable">
+            <thead style="position:sticky;top:0;z-index:1">
+              <tr style="background:var(--bg4)">
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid var(--border);font-weight:600">材料名称</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:2px solid var(--border);font-weight:600;width:150px">规格型号</th>
+                <th style="padding:6px 8px;text-align:center;border-bottom:2px solid var(--border);font-weight:600;width:36px">单位</th>
+                <th style="padding:6px 8px;text-align:right;border-bottom:2px solid var(--border);font-weight:600;width:70px">不含税</th>
+                <th style="padding:6px 8px;text-align:right;border-bottom:2px solid var(--border);font-weight:600;width:70px">含税</th>
+              </tr>
+            </thead>
+            <tbody id="mmTbody">
+              <tr><td colspan="5" style="text-align:center;padding:36px;color:var(--tx3)">选择品类后显示材料列表</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="mmInfo" style="font-size:11px;color:var(--tx3);margin-top:8px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <span id="mmCount"></span>
+          <button class="btn btn-sm btn-suc" onclick="applyMainMat()" id="mmApplyBtn" disabled>✅ 选用选中材料</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⬇ 导出弹窗 -->
+    <div id="exportModal" class="modal-overlay hidden" onclick="if(event.target===this)closeExportModal()" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:none;align-items:center;justify-content:center">
+      <div class="modal-box" style="background:var(--bg2);border-radius:12px;padding:18px 22px;max-width:620px;width:94%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.2);border:2px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-weight:700;font-size:14px">⬇ 导出套价表</span>
+          <button onclick="closeExportModal()" style="font-size:16px;padding:0 4px;border:none;background:transparent;cursor:pointer;color:var(--tx3)">✕</button>
+        </div>
+        <!-- 方式切换 -->
+        <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border)">
+          <button class="exp-tab active" data-tab="config" onclick="switchExportTab('config')" style="padding:6px 16px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;color:var(--tx2);border-bottom:2px solid transparent;margin-bottom:-2px">📋 配置导出</button>
+          <button class="exp-tab" data-tab="template" onclick="switchExportTab('template')" style="padding:6px 16px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;color:var(--tx2);border-bottom:2px solid transparent;margin-bottom:-2px">📄 按模板导出</button>
+        </div>
+        <!-- 方式一：配置导出 -->
+        <div id="expConfig">
+          <p style="font-size:11px;color:var(--tx3);margin-bottom:10px">勾选要导出的列，可双击列名修改标题</p>
+          <div id="expCols" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn btn-sm" onclick="expCheckAll()">全选</button>
+            <button class="btn btn-sm" onclick="expCheckNone()">全不选</button>
+            <button class="btn btn-sm" onclick="expLoadPreset('client')">甲方报价模板</button>
+            <button class="btn btn-sm" onclick="expLoadPreset('internal')">内部全量</button>
+            <button class="btn btn-sm" onclick="expLoadPreset('labor')">人工费清单</button>
+            <span style="font-size:10px;color:var(--tx3)">模板自动保存</span>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="closeExportModal()">取消</button>
+            <button class="btn btn-sm btn-suc" onclick="doConfigExport()">✅ 导出 Excel</button>
+          </div>
+        </div>
+        <!-- 方式二：模板导出 -->
+        <div id="expTemplate" class="hidden">
+          <p style="font-size:11px;color:var(--tx3);margin-bottom:10px">上传甲方要求的输出格式 Excel，系统自动匹配列并填入套价数据</p>
+          <div style="margin-bottom:10px">
+            <input type="file" id="tmplFile" accept=".xlsx,.xls" onchange="handleTmplFile(event)" style="font-size:12px">
+            <span id="tmplStatus" style="font-size:11px;color:var(--tx3);margin-left:8px"></span>
+          </div>
+          <div id="tmplMapping" class="hidden" style="margin-bottom:10px">
+            <p style="font-size:11px;font-weight:600;margin-bottom:6px">列映射（模板列 → 数据字段）：</p>
+            <div id="tmplMapList" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto"></div>
+            <button class="btn btn-sm" onclick="autoMatchTmplCols()" style="margin-top:6px">🔄 自动匹配</button>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="closeExportModal()">取消</button>
+            <button class="btn btn-sm btn-suc" id="tmplExportBtn" disabled onclick="doTemplateExport()">✅ 填入并导出</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="tmplFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleTmplFile(event)">
 
     <div class="boq-wrap" id="boqWrap">
       <div class="upload-area" id="uploadArea"
@@ -706,6 +794,188 @@ function recomputeAllAux() {
   });
 }
 
+// ═══════════ 📦 主材选品面板（V2: 扁平材料列表） ═══════════
+let mainMatCache = [];    // [{id, category_name, material_name, spec, unit, price_ex_tax, price_incl_tax, tax_rate, source_file}]
+let mmSelectedRow = null; // 当前正在选主材的行 ID
+let mmSelectedId = null;  // 选中材料的 catalog ID
+let mmSelectedPriceEx = null;
+let mmSelectedPriceIn = null;
+let mmSelectedName = '';
+let mmSelectedUnit = '';
+
+async function loadMainMaterialCategories() {
+  try {
+    // Load categories
+    const cats = await _get('main_material_categories', {order:{col:'sort_order',asc:true}, limit:50});
+    // Load materials with latest prices
+    const items = await _get('main_material_prices', {order:{col:'effective_month',asc:false}, limit:1000});
+    if (!items || !items.length) return;
+    
+    // Take latest price per material
+    const latest = {};
+    items.forEach(it => {
+      if (!latest[it.material_id] || it.effective_month > latest[it.material_id].effective_month) {
+        latest[it.material_id] = it;
+      }
+    });
+    
+    // Load catalog to get names/specs
+    const catalog = await _get('main_material_catalog', {select:'id,category_id,material_name,spec,unit', limit:1000});
+    if (!catalog) return;
+    
+    // Build cache: join catalog + prices + categories
+    const catMap = {};
+    if (cats) cats.forEach(c => { catMap[c.id] = c; });
+    
+    mainMatCache = catalog.map(m => {
+      const p = latest[m.id] || {};
+      const cat = catMap[m.category_id] || {};
+      return {
+        id: m.id,
+        category_name: cat.category_name || '',
+        category_status: cat.status || '',
+        material_name: m.material_name,
+        spec: m.spec || '',
+        unit: m.unit || '',
+        price_ex_tax: parseFloat(p.price_ex_tax) || 0,
+        price_incl_tax: parseFloat(p.price_incl_tax) || 0,
+        tax_rate: parseFloat(p.tax_rate) || 0.13,
+        source_file: p.source_file || '',
+      };
+    }).filter(m => m.price_ex_tax > 0);
+    
+    console.log('主材库加载:', mainMatCache.length, '条（'+[...new Set(mainMatCache.map(m=>m.category_name))].length+'个品类）');
+  } catch(e) { console.warn('主材库加载失败', e); }
+}
+
+function openMainMatPanel(rowId) {
+  mmSelectedRow = rowId;
+  mmSelectedId = null;
+  mmSelectedPriceEx = null;
+  mmSelectedName = '';
+
+  if (!mainMatCache.length) {
+    alert('主材价格库暂无数据，请先在 Supabase 执行 seed_main_materials.sql');
+    return;
+  }
+
+  // 填充品类下拉（只显示有数据的）
+  const catSel = document.getElementById('mmCat');
+  const cats = [...new Set(mainMatCache.map(m => m.category_name).filter(Boolean))].sort();
+  catSel.innerHTML = '<option value="">— 全部品类 —</option>' +
+    cats.map(c => '<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+
+  document.getElementById('mmSearch').value = '';
+  document.getElementById('mmApplyBtn').disabled = true;
+  document.getElementById('mmCount').textContent = '';
+
+  // 如果当前行已有材料名，尝试预选品类
+  if (rowId) {
+    const r = findRow(rowId);
+    if (r && r.matName) {
+      const match = mainMatCache.find(m => r.matName.includes(m.material_name) || m.material_name.includes(r.matName));
+      if (match) {
+        catSel.value = match.category_name;
+      }
+    }
+  }
+
+  renderMainMatList();
+  
+  const modal = document.getElementById('mainMatModal');
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+}
+
+function closeMainMatPanel() {
+  const modal = document.getElementById('mainMatModal');
+  modal.classList.add('hidden');
+  modal.style.display = 'none';
+  mmSelectedRow = null; mmSelectedId = null;
+}
+
+function onMainMatCatChange() {
+  renderMainMatList();
+}
+
+function renderMainMatList() {
+  const cat = document.getElementById('mmCat').value;
+  const search = (document.getElementById('mmSearch').value || '').toLowerCase();
+  
+  let list = mainMatCache;
+  if (cat) list = list.filter(m => m.category_name === cat);
+  if (search) list = list.filter(m => 
+    m.material_name.toLowerCase().includes(search) || 
+    (m.spec||'').toLowerCase().includes(search)
+  );
+  
+  const tbody = document.getElementById('mmTbody');
+  document.getElementById('mmApplyBtn').disabled = true;
+  mmSelectedId = null;
+  
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--tx3)">无匹配材料</td></tr>';
+    document.getElementById('mmCount').textContent = '0 条';
+    return;
+  }
+  
+  document.getElementById('mmCount').textContent = '共 ' + list.length + ' 条';
+  
+  tbody.innerHTML = list.map(m => {
+    const specDisplay = (m.spec || '').length > 80 ? (m.spec||'').substring(0,80) + '...' : (m.spec||'');
+    const safeName = esc(m.material_name).replace(/'/g, "\'");
+    const safeSpec = esc(specDisplay).replace(/'/g, "\'");
+    const safeUnit = esc(m.unit||'').replace(/'/g, "\'");
+    return '<tr onclick="selectMainMat(' + m.id + ',\'' + safeName + '\',' + m.price_ex_tax + ',' + m.price_incl_tax + ',\'' + safeUnit + '\')" ' +
+      'style="cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s" ' +
+      'onmouseover="this.style.background=\'var(--bg4)\'" onmouseout="if(!this.classList.contains(\'mm-selected\'))this.style.background=\'\'">' +
+      '<td style="padding:5px 8px;font-weight:500">' + esc(m.material_name) + '</td>' +
+      '<td style="padding:5px 8px;font-size:10px;color:var(--tx3)">' + esc(specDisplay) + '</td>' +
+      '<td style="padding:5px 8px;text-align:center;font-size:10px;color:var(--tx3)">' + esc(m.unit||'') + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums">¥' + fmt(m.price_ex_tax) + '</td>' +
+      '<td style="padding:5px 8px;text-align:right;font-variant-numeric:tabular-nums;color:var(--tx2)">¥' + fmt(m.price_incl_tax) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function selectMainMat(id, name, pEx, pIn, unit) {
+  mmSelectedId = id;
+  mmSelectedName = name;
+  mmSelectedPriceEx = pEx;
+  mmSelectedPriceIn = pIn;
+  mmSelectedUnit = unit;
+  document.getElementById('mmApplyBtn').disabled = false;
+  
+  // Highlight selected row
+  document.querySelectorAll('#mmTbody tr').forEach(tr => {
+    tr.classList.remove('mm-selected');
+    tr.style.background = '';
+  });
+  if (typeof event !== 'undefined' && event && event.target) {
+    const tr = event.target.closest('tr');
+    if (tr) {
+      tr.classList.add('mm-selected');
+      tr.style.background = 'var(--accent-light, #e6f7ff)';
+    }
+  }
+}
+
+function applyMainMat() {
+  if (!mmSelectedRow || !mmSelectedPriceEx) return;
+  
+  const r = findRow(mmSelectedRow);
+  if (!r) return;
+  
+  // 填入主材费（默认用不含税价）+ 材料名
+  r.matPrice = mmSelectedPriceEx;
+  r.matName = mmSelectedName;
+  updField(mmSelectedRow, 'matPrice', mmSelectedPriceEx);
+  updField(mmSelectedRow, 'matName', mmSelectedName);
+  
+  closeMainMatPanel();
+  renderBoq();
+}
+
 // ═══════════ 💰 辅材价格面板 ═══════════
 function buildMaterialList() {
   const mats = {}; // name -> {unit, defaultPrice}
@@ -956,8 +1226,7 @@ function renderBoq() {
           '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
           '<td class="r"><input class="qty-i" type="number" min="0" step="any" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
           '<td class="r-price r">'+fmt(up)+'</td>' +
-          '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
-          '<td class="r"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"></td>' +
+          '<td class="r"><div style="display:flex;align-items:center;gap:2px"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"><button class="btn btn-ghost btn-sm" style="padding:0 3px;font-size:10px" onclick="event.stopPropagation();openMainMatPanel('+r.id+')" title="从主材库选价">📦</button></div></td>' +
           '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
           '<td class="r">'+fmt((up||0)*(globalMgmtRate/100))+'</td>' +
           '<td class="r">'+fmt((up||0)*(globalProfitRate/100))+'</td>' +
@@ -1369,262 +1638,347 @@ function handleKnowledgeFile(e) {
   reader.readAsBinaryString(file);
 }
 
-function exportResult() {
+function showExportModal() {
   if (!groups.length) { toast('暂无数据可导出'); return; }
-  const wb       = XLSX.utils.book_new();
-  const proj     = document.getElementById('projName').value || '套价表';
-  const team     = document.getElementById('projTeam').value || '—';
-  const date     = document.getElementById('projDate').value || '—';
-  const mgmtRateNum = globalMgmtRate / 100;
-  const profitRateNum = globalProfitRate / 100;
+  buildExpCols();
+  document.getElementById('exportModal').classList.remove('hidden');
+  document.getElementById('exportModal').style.display = 'flex';
+  switchExportTab('config');
+}
+function closeExportModal() {
+  document.getElementById('exportModal').classList.add('hidden');
+  document.getElementById('exportModal').style.display = 'none';
+}
+function switchExportTab(tab) {
+  document.querySelectorAll('.exp-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('expConfig').classList.toggle('hidden', tab !== 'config');
+  document.getElementById('expTemplate').classList.toggle('hidden', tab !== 'template');
+  if (tab === 'config') saveExpPreset();
+}
 
-  // ── 15列（A-O，1-based行号）────────────────────────────
-  // A:序号 B:编号 C:项目名称/子目名称 D:项目特征/子目规格说明
-  // E:单位 F:工程量 G:人工单价 H:辅材费 I:主材费 J:损耗率(%)
-  // K:管理费/系数 L:利润 M:综合单价 N:定额合价 O:备注
-  //
-  // BOQ行公式：
-  //   G = SUM(子目行M列) = 人工单价合计
-  //   H = 辅材费（静态值，computeAuxForRow）
-  //   I = 主材费（用户输入，静态值）
-  //   J = 损耗率（用户输入，%）
-  //   K = G × 管理费率       (BOQ)  或 综合系数 (子目)
-  //   L = G × 利润率         (BOQ)
-  //   M = G + H + I×(1+J/100) + K + L  (综合单价)
-  //   N = M × F              (定额合价)
-  //
-  // 子目行：
-  //   G = 基准单价   K = 综合系数(=子目系数×类型系数×换算系数)
-  //   M = G × K      (有效单价)
+// ═══════════ 方式一：配置导出 ═══════════
+const EXP_COLS = [
+  {key:'seq',  label:'序号',       get:r=>r._seq,           num:false, wide:5,  def:true,  preset:{client:true, internal:true, labor:true}},
+  {key:'code', label:'编号',       get:r=>r._code||'',       num:false, wide:10, def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'name', label:'项目名称',    get:r=>r.name||'',        num:false, wide:28, def:true,  preset:{client:true, internal:true, labor:true}},
+  {key:'spec', label:'项目特征',    get:r=>r.spec||'',        num:false, wide:44, def:true,  preset:{client:false,internal:true, labor:false}},
+  {key:'unit', label:'单位',       get:r=>r.unit||'',        num:false, wide:6,  def:true,  preset:{client:true, internal:true, labor:true}},
+  {key:'qty',  label:'工程量',     get:r=>parseFloat(r.qty)||0, num:true, wide:10, def:true, preset:{client:true, internal:true, labor:true}},
+  {key:'lab',  label:'人工单价',    get:r=>rowUnitPrice(r)||0,   num:true, wide:10, def:false, preset:{client:false,internal:true, labor:true}},
+  {key:'mat',  label:'主材费',     get:r=>parseFloat(r.matPrice)||0, num:true, wide:10, def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'waste',label:'损耗率',     get:r=>parseFloat(r.wasteRate)||0, num:true, wide:8,  def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'aux',  label:'辅材费',     get:r=>parseFloat(r.auxCost)||0,   num:true, wide:10, def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'usp',  label:'综合单价',    get:r=>compUnitPrice(r)||0,   num:true, wide:12, def:true,  preset:{client:true, internal:true, labor:false}},
+  {key:'total',label:'合价',       get:r=>rowTotal(r)||0,        num:true, wide:14, def:true,  preset:{client:true, internal:true, labor:true}},
+  {key:'remark',label:'备注',      get:r=>r.remark||'',         num:false, wide:22, def:true,  preset:{client:false,internal:true, labor:false}},
+];
 
-  const ws   = {};
-  ws['!ref'] = 'A1:O1';
-  let ri = 0;  // 当前行（0-based）
+function buildExpCols() {
+  const cont = document.getElementById('expCols');
+  cont.innerHTML = EXP_COLS.map((c,i) => {
+    const checked = loadExpPreset()[c.key] !== undefined ? loadExpPreset()[c.key] : c.def;
+    return '<label style="display:flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;min-width:90px">' +
+      '<input type="checkbox" id="expchk_'+c.key+'" '+(checked?'checked':'')+' onchange="saveExpPreset()">' +
+      '<span id="explbl_'+c.key+'" ondblclick="renameExpCol(\''+c.key+'\')" title="双击改名">'+esc(c.label)+'</span>' +
+      '</label>';
+  }).join('');
+}
 
-  // 写单元格辅助函数
-  function sc(r, c, value, isFormula, numFmt) {
-    const ref  = XLSX.utils.encode_cell({r, c});
-    const cell = isFormula
-      ? { f: value, t: 'n' }
-      : { v: (value===null||value===undefined)?'':value,
-          t: typeof value==='number'?'n':(value===''?'z':'s') };
-    if (numFmt) cell.z = numFmt;
+function loadExpPreset() {
+  try { return JSON.parse(localStorage.getItem('exp_preset')||'{}'); } catch(e) { return {}; }
+}
+function saveExpPreset() {
+  const obj = {};
+  EXP_COLS.forEach(c => { obj[c.key] = document.getElementById('expchk_'+c.key)?.checked || false; });
+  EXP_COLS.forEach(c => { const lbl = document.getElementById('explbl_'+c.key); if(lbl) obj[c.key+'_label'] = lbl.textContent; });
+  localStorage.setItem('exp_preset', JSON.stringify(obj));
+}
+function renameExpCol(key) {
+  const lbl = document.getElementById('explbl_'+key);
+  const old = lbl.textContent;
+  const nu = prompt('修改列名：', old);
+  if (nu && nu.trim()) { lbl.textContent = nu.trim(); saveExpPreset(); }
+}
+function expCheckAll() { EXP_COLS.forEach(c=>{ const cb=document.getElementById('expchk_'+c.key); if(cb)cb.checked=true; }); saveExpPreset(); }
+function expCheckNone() { EXP_COLS.forEach(c=>{ const cb=document.getElementById('expchk_'+c.key); if(cb)cb.checked=false; }); saveExpPreset(); }
+function expLoadPreset(name) {
+  EXP_COLS.forEach(c => {
+    const cb = document.getElementById('expchk_'+c.key);
+    if (cb) cb.checked = c.preset[name] || false;
+  });
+  saveExpPreset();
+  buildExpCols();
+  toast('已加载「'+(name==='client'?'甲方报价':name==='internal'?'内部全量':'人工费清单')+'」模板');
+}
+
+function getExpLabel(key) {
+  const preset = loadExpPreset();
+  const labelKey = key+'_label';
+  if (preset[labelKey]) return preset[labelKey];
+  const col = EXP_COLS.find(c=>c.key===key);
+  return col ? col.label : key;
+}
+
+function doConfigExport() {
+  if (!groups.length) { toast('暂无数据'); return; }
+  const selected = EXP_COLS.filter(c => document.getElementById('expchk_'+c.key)?.checked);
+  if (!selected.length) { toast('请至少勾选一列'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+  let ri = 0, seq = 0;
+  const proj = document.getElementById('projName').value || '套价表';
+
+  function sc(r,c,v,fmt) {
+    const ref = XLSX.utils.encode_cell({r,c});
+    const cell = { v: (v===null||v===undefined)?'':v, t: typeof v==='number'?'n':'s' };
+    if (fmt && typeof v==='number') cell.z = fmt;
     ws[ref] = cell;
-    const range = XLSX.utils.decode_range(ws['!ref']);
+    const range = XLSX.utils.decode_range(ws['!ref']||'A1');
     range.e.r = Math.max(range.e.r, r);
     range.e.c = Math.max(range.e.c, c);
     ws['!ref'] = XLSX.utils.encode_range(range);
   }
 
-  const meta  = [];
-  const mergeM = [];
-  function rowMeta(lv, doMerge) { meta.push(lv); mergeM.push(!!doMerge); }
+  // Title row
+  const rowVals = selected.map(c => '');
+  rowVals[0] = proj + '  套价表'; sc(ri, 0, rowVals[0]); ri++;
+  // Header row
+  selected.forEach((c,ci) => sc(ri, ci, getExpLabel(c.key))); ri++;
 
-  // ── 标题3行 ──
-  sc(ri,0,proj+'  企业定额套价表'); rowMeta(0); ri++;
-  sc(ri,0,'类型系数：×'+globalCoef.toFixed(2)+'    班组类型：'+team+'    编制日期：'+date); rowMeta(0); ri++;
-  sc(ri,0,'说明：企业定额为劳务综合单价（仅人工费），不含甲供主材（石材、瓷砖、木饰面等）'); rowMeta(0); ri++;
-
-  // ── 表头 ──
-  ['序号','编号','项目名称 / 子目名称','项目特征 / 子目规格说明',
-   '单位','工程量','人工单价','辅材费','主材费','损耗率(%)',
-   '管理费/系数','利润','综合单价','定额合价','备注']
-   .forEach((h,c) => sc(ri,c,h));
-  rowMeta(0); ri++;
-
-  let seqIdx = 0;
-  const grpNRows  = [];
-
+  // Data rows
   groups.forEach(g => {
-    const grpRow = ri;
-    sc(ri,2,g.sheetName); rowMeta(1, true); ri++;
-    const secNRows = [];
-
-    g.sections.forEach(s => {
-      const secRow = ri;
-      sc(ri,2,s.name); rowMeta(2, true); ri++;
-      const boqNRows = [];
-
-      s.rows.forEach(r => {
-        seqIdx++;
-        const boqRow = ri;
-        const boqRef = boqRow+1;  // Excel 1-based
-
-        sc(ri,0,seqIdx);                                              // A 序号
-        sc(ri,2,r.name);                                             // C 项目名称
-        sc(ri,3,r.spec);                                             // D 项目特征
-        sc(ri,4,r.unit);                                             // E 单位
-        if (r.qty!=='') sc(ri,5,parseFloat(r.qty),false,'#,##0.000'); // F 工程量
-
-        if (r.hourlyMode) {
-          sc(ri,6,hourlyRate,false,'#,##0.00');                       // G 人工单价=时工单价
-          sc(ri,14,(r.remark?r.remark+'；':'')+'按时工计算（'+hourlyRate.toFixed(0)+'元/工日）');
-        } else {
-          sc(ri,14,r.remark);                                        // O 备注
-        }
-        rowMeta(3); ri++;
-
-        const subMRows = [];
-        if (!r.hourlyMode) {
-          r.subs.forEach(sub => {
-            const it = getBench(sub.bid, sub.bsh);
-            if (!it) return;
-            const _coef = parseFloat(sub.coef) || 1.0;
-            const _conv = parseFloat(sub.conv) || 1.0;
-            const _glob = parseFloat(globalCoef) || 1.0;
-            const totalCoef = parseFloat((_coef * _glob * _conv).toFixed(3));
-
-            const ru=(r.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
-            const bu=(it.unit||'').replace(/㎡/g,'m2').replace(/㎥/g,'m3').toLowerCase().trim();
-            const mm=ru&&bu&&ru!==bu;
-
-            sc(ri,1,it.id);                                           // B 子目编号
-            sc(ri,2,it.name);                                         // C 子目名称
-            sc(ri,3,it.spec?it.spec.substring(0,100):'');             // D 子目规格
-            sc(ri,4,it.unit);                                         // E 定额单位
-            sc(ri,6,it.price,false,'#,##0.00');                       // G 基准单价
-            sc(ri,10,totalCoef,false,'0.000');                        // K 综合系数
-            // M = G × K（有效单价）
-            const subRef = ri+1;
-            sc(ri,12,'G'+subRef+'*K'+subRef,true,'#,##0.00');         // M 有效单价
-            sc(ri,14,mm?'⚠️定额单位'+it.unit+'≠清单单位'+r.unit:(it.remark||'')); // O 备注
-            subMRows.push(ri);
-            rowMeta(4); ri++;
-          });
-        }
-
-        // BOQ行回填公式
-        if (r.hourlyMode) {
-          sc(boqRow,12,'G'+boqRef,true,'#,##0.00');                   // M=G（时工）
-        } else if (subMRows.length > 0) {
-          // G = SUM(子目行M列)
-          const gRefs = subMRows.map(r2 => 'M'+(r2+1)).join('+');
-          sc(boqRow,6,gRefs,true,'#,##0.00');
-        } else {
-          sc(boqRow,6,'',false);
-        }
-
-        // H = 辅材费（静态值）
-        const aux = computeAuxForRow(r);
-        if (aux.total > 0) sc(boqRow,7,aux.total,false,'#,##0.00');
-        // I = 主材费（用户输入）
-        if (r.matPrice && parseFloat(r.matPrice) > 0) sc(boqRow,8,parseFloat(r.matPrice),false,'#,##0.00');
-        // J = 损耗率%
-        if (r.wasteRate && parseFloat(r.wasteRate) > 0) sc(boqRow,9,parseFloat(r.wasteRate),false,'0.0');
-
-        // K = 管理费 = G × mgmtRate
-        sc(boqRow,10,'G'+boqRef+'*'+mgmtRateNum,true,'#,##0.00');
-        // L = 利润 = G × profitRate
-        sc(boqRow,11,'G'+boqRef+'*'+profitRateNum,true,'#,##0.00');
-
-        // M = G + H + I×(1+J/100) + K + L
-        sc(boqRow,12,
-          'G'+boqRef+'+IF(H'+boqRef+'="",0,H'+boqRef+')+IF(I'+boqRef+'="",0,I'+boqRef+'*(1+IF(J'+boqRef+'="",0,J'+boqRef+')/100))+IF(K'+boqRef+'="",0,K'+boqRef+')+IF(L'+boqRef+'="",0,L'+boqRef+')',
-          true,'#,##0.00');
-        // N = M × F
-        sc(boqRow,13,'M'+boqRef+'*F'+boqRef,true,'#,##0.00');
-
-        boqNRows.push(boqRow);
+    sc(ri, 0, '【'+g.sheetName+'】'); ri++;
+    g.sections.forEach(sec => {
+      sc(ri, 0, sec.name); ri++;
+      sec.rows.forEach(r => {
+        seq++; r._seq = seq;
+        const code = (r.subs && r.subs.length) ? (r.subs[0].bid||'') : '';
+        r._code = code;
+        selected.forEach((c,ci) => {
+          const val = c.get(r);
+          sc(ri, ci, val, c.num ? '#,##0.00' : null);
+        });
+        ri++;
       });
-
-      // 分部 N = SUM(BOQ N)
-      if (boqNRows.length > 0) {
-        const nRefs = boqNRows.map(r2 => 'N'+(r2+1)).join('+');
-        sc(secRow,13,nRefs,true,'#,##0.00');
-      }
-      secNRows.push(secRow);
     });
-
-    // 分组 N = SUM(分部 N)
-    if (secNRows.length > 0) {
-      const nRefs = secNRows.map(r2 => 'N'+(r2+1)).join('+');
-      sc(grpRow,13,nRefs,true,'#,##0.00');
-    }
-    grpNRows.push(grpRow);
   });
 
-  // ── 合计行 ──
-  sc(ri,2,'合  计');
-  if (grpNRows.length > 0) {
-    const nRefs = grpNRows.map(r2 => 'N'+(r2+1)).join('+');
-    sc(ri,13,nRefs,true,'#,##0.00');
-  }
-  rowMeta(0); ri++;
-
-  // ── 列宽 ──
-  ws['!cols']=[
-    {wch:5},   // A 序号
-    {wch:10},  // B 编号
-    {wch:26},  // C 项目名称/子目名称
-    {wch:38},  // D 项目特征/子目规格说明
-    {wch:7},   // E 单位
-    {wch:9},   // F 工程量
-    {wch:10},  // G 人工单价
-    {wch:9},   // H 辅材费
-    {wch:9},   // I 主材费
-    {wch:8},   // J 损耗率
-    {wch:9},   // K 管理费/系数
-    {wch:9},   // L 利润
-    {wch:10},  // M 综合单价
-    {wch:11},  // N 定额合价
-    {wch:20},  // O 备注
-  ];
-
-  // ── 行高 & outline level ──
-  ws['!rows'] = meta.map((lv, i) => {
-    const obj = {};
-    if (lv===4)      { obj.hpt=30; obj.level=2; }
-    else if (lv===3) { obj.hpt=44; obj.level=1; }
-    else if (lv===2) { obj.hpt=20; }
-    else if (lv===1) { obj.hpt=24; }
-    else if (i===0)  { obj.hpt=34; }
-    else if (i===3)  { obj.hpt=28; }
-    else             { obj.hpt=20; }
-    return obj;
-  });
-
-  // ── 合并单元格 ──
-  const merges=[
-    {s:{r:0,c:0},e:{r:0,c:14}},
-    {s:{r:1,c:0},e:{r:1,c:14}},
-    {s:{r:2,c:0},e:{r:2,c:14}},
-    {s:{r:ri-1,c:2},e:{r:ri-1,c:13}},  // 合计行 C:N
-  ];
-  meta.forEach((_,i)=>{
-    if(meta[i]===1||meta[i]===2)
-      merges.push({s:{r:i,c:2},e:{r:i,c:13}});  // 分组/分部行合并 C:N
-  });
-  ws['!merges']=merges;
-
-  // ── 单元格数字格式 ──
-  const wsRange = XLSX.utils.decode_range(ws['!ref']||'A1:O1');
-  for (let r=wsRange.s.r; r<=wsRange.e.r; r++) {
-    for (let c=wsRange.s.c; c<=wsRange.e.c; c++) {
-      const ref  = XLSX.utils.encode_cell({r,c});
-      const cell = ws[ref];
-      if (!cell) continue;
-      if (!cell.z) {
-        if (c===10) cell.z='0.000';                  // K 管理费/系数
-        else if (c===9) cell.z='0.0';               // J 损耗率
-        else if (c>=5 && c<=13) cell.z='#,##0.00';   // F-N 金额/数量
+  // Col widths
+  ws['!cols'] = selected.map(c => ({wch: c.wide}));
+  // Auto-wrap all cells
+  const range = XLSX.utils.decode_range(ws['!ref']||'A1');
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({r,c});
+      if (ws[ref]) {
+        ws[ref].s = { alignment: { vertical:'center', horizontal: (c===0||selected[c]?.num)?'right':'left', wrapText: true } };
       }
-      const isCtr=(c===0||c===4);
-      const isR=(c>=5&&c<=13);
-      cell.s={alignment:{
-        vertical:'center',
-        horizontal:isR?'right':isCtr?'center':'left',
-        wrapText:c===3
-      }};
     }
   }
+  // Merge title row
+  if (selected.length > 1) {
+    ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:selected.length-1}}];
+  }
 
-  ws['!outline']={above:true,left:true};
-
-  XLSX.utils.book_append_sheet(wb,ws,'套价清单');
-  XLSX.writeFile(wb,proj+'_套价结果.xlsx');
-  toast('✓ 已导出：'+proj+'_套价结果.xlsx（含公式）');
+  XLSX.utils.book_append_sheet(wb, ws, '套价清单');
+  XLSX.writeFile(wb, proj+'_套价结果.xlsx');
+  closeExportModal();
+  toast('✓ 已导出：'+proj+'_套价结果.xlsx');
 }
-// ═══════════ SUMMARY ═══════════
+
+// ═══════════ 方式二：模板导出 ═══════════
+let tmplWB = null;       // 模板 workbook
+let tmplSheetName = '';  // 模板 sheet 名
+let tmplHeaders = [];    // [{col, label}] 模板表头的列索引和标签
+let tmplMapping = {};    // {templateColIndex: dataFieldKey}
+
+const TMPL_FIELDS = [
+  {key:'seq',     label:'序号',     patterns:['序号','项次','NO','编号']},
+  {key:'name',    label:'项目名称',   patterns:['项目名称','名称','清单项目名称','项目']},
+  {key:'spec',    label:'项目特征',   patterns:['项目特征','特征描述','规格','特征']},
+  {key:'unit',    label:'单位',      patterns:['单位','计量单位','计价单位']},
+  {key:'qty',     label:'工程量',    patterns:['工程量','数量','工程数量']},
+  {key:'lab',     label:'人工单价',   patterns:['人工单价','人工费','劳务单价','基准单价']},
+  {key:'mat',     label:'主材费',    patterns:['主材费','材料费','主材单价','材料单价']},
+  {key:'aux',     label:'辅材费',    patterns:['辅材费','辅材']},
+  {key:'usp',     label:'综合单价',   patterns:['综合单价','定额单价','全费用单价','单价']},
+  {key:'total',   label:'合价',      patterns:['合价','总价','金额','定额合价']},
+  {key:'remark',  label:'备注',      patterns:['备注','说明','注释']},
+];
+
+async function handleTmplFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('tmplStatus').textContent = '读取中...';
+  const data = await file.arrayBuffer();
+  tmplWB = XLSX.read(data, {type:'array', cellStyles:true, cellFormula:false});
+  tmplSheetName = tmplWB.SheetNames[0];
+  const ws = tmplWB.Sheets[tmplSheetName];
+  
+  // Find header row: scan first 10 rows for maximum keyword matches
+  let bestRow = -1, bestScore = 0;
+  const range = XLSX.utils.decode_range(ws['!ref']||'A1');
+  for (let r = range.s.r; r <= Math.min(range.s.r + 10, range.e.r); r++) {
+    let score = 0;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({r,c});
+      const cell = ws[ref];
+      if (!cell || !cell.v) continue;
+      const v = String(cell.v).trim();
+      for (const f of TMPL_FIELDS) {
+        if (f.patterns.some(p => v.includes(p))) { score++; break; }
+      }
+    }
+    if (score > bestScore) { bestScore = score; bestRow = r; }
+  }
+  
+  if (bestRow < 0) { document.getElementById('tmplStatus').textContent = '未识别到表头行'; return; }
+  
+  // Extract header labels
+  tmplHeaders = [];
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const ref = XLSX.utils.encode_cell({r:bestRow, c});
+    const cell = ws[ref];
+    tmplHeaders.push({col: c, label: cell ? String(cell.v||'').trim() : ''});
+  }
+  
+  // Auto-match
+  autoMatchTmplCols();
+  renderTmplMapping();
+  document.getElementById('tmplStatus').textContent = '已识别 '+tmplHeaders.filter(h=>h.label).length+' 个表头列，表头行='+(bestRow+1);
+  document.getElementById('tmplMapping').classList.remove('hidden');
+  document.getElementById('tmplExportBtn').disabled = false;
+}
+
+function autoMatchTmplCols() {
+  tmplMapping = {};
+  tmplHeaders.forEach(h => {
+    const v = h.label;
+    if (!v) return;
+    for (const f of TMPL_FIELDS) {
+      if (f.patterns.some(p => v.includes(p))) {
+        tmplMapping[h.col] = f.key;
+        break;
+      }
+    }
+  });
+}
+
+function renderTmplMapping() {
+  const cont = document.getElementById('tmplMapList');
+  cont.innerHTML = tmplHeaders.filter(h => h.label).map(h => {
+    const mapped = tmplMapping[h.col] || '';
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:11px">' +
+      '<span style="width:120px;color:var(--tx3);text-align:right">'+esc(h.label)+'</span>' +
+      '<span style="color:var(--tx3)">→</span>' +
+      '<select onchange="tmplMapping['+h.col+']=this.value" style="flex:1;padding:2px 4px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--bg1);color:var(--tx1)">' +
+      '<option value="">— 跳过 —</option>' +
+      TMPL_FIELDS.map(f => '<option value="'+f.key+'" '+(mapped===f.key?'selected':'')+'>'+f.label+'</option>').join('') +
+      '</select></div>';
+  }).join('');
+}
+
+function doTemplateExport() {
+  if (!tmplWB || !groups.length) { toast('请先上传模板'); return; }
+  
+  // Clone the template sheet
+  const srcWs = tmplWB.Sheets[tmplSheetName];
+  const ws = {};
+  // Copy all cells from template
+  const range = XLSX.utils.decode_range(srcWs['!ref']||'A1');
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({r,c});
+      if (srcWs[ref]) {
+        ws[ref] = {...srcWs[ref]};
+      }
+    }
+  }
+  ws['!ref'] = srcWs['!ref'];
+  if (srcWs['!merges']) ws['!merges'] = JSON.parse(JSON.stringify(srcWs['!merges']));
+  if (srcWs['!cols']) ws['!cols'] = JSON.parse(JSON.stringify(srcWs['!cols']));
+  if (srcWs['!rows']) ws['!rows'] = JSON.parse(JSON.stringify(srcWs['!rows']));
+  
+  // Find data start row (first row after header with data or first empty row)
+  const hdrRow = (() => {
+    for (let r = range.s.r; r <= Math.min(range.s.r + 15, range.e.r); r++) {
+      let score = 0;
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const ref = XLSX.utils.encode_cell({r,c});
+        if (ws[ref] && ws[ref].v) {
+          const v = String(ws[ref].v);
+          for (const f of TMPL_FIELDS) { if (f.patterns.some(p => v.includes(p))) score++; }
+        }
+      }
+      if (score >= 2) return r;
+    }
+    return range.s.r;
+  })();
+  
+  // Flatten data rows
+  const dataRows = [];
+  let seq = 0;
+  groups.forEach(g => {
+    g.sections.forEach(sec => {
+      sec.rows.forEach(r => {
+        seq++; r._seq = seq;
+        dataRows.push(r);
+      });
+    });
+  });
+  
+  // Fill data into template starting from hdrRow+1
+  let outRow = hdrRow + 1;
+  const fieldGetters = {
+    seq:   r => r._seq,
+    name:  r => r.name||'',
+    spec:  r => r.spec||'',
+    unit:  r => r.unit||'',
+    qty:   r => parseFloat(r.qty)||0,
+    lab:   r => rowUnitPrice(r)||0,
+    mat:   r => parseFloat(r.matPrice)||0,
+    aux:   r => parseFloat(r.auxCost)||0,
+    usp:   r => compUnitPrice(r)||0,
+    total: r => rowTotal(r)||0,
+    remark: r => r.remark||'',
+  };
+  
+  dataRows.forEach(r => {
+    Object.entries(tmplMapping).forEach(([col, fieldKey]) => {
+      const c = parseInt(col);
+      const ref = XLSX.utils.encode_cell({r: outRow, c});
+      const val = fieldGetters[fieldKey] ? fieldGetters[fieldKey](r) : '';
+      ws[ref] = { v: val, t: typeof val === 'number' ? 'n' : 's' };
+      if (typeof val === 'number') ws[ref].z = '#,##0.00';
+    });
+    outRow++;
+  });
+  
+  // Ensure all cells have wrapText
+  const newRange = XLSX.utils.decode_range(ws['!ref']||'A1');
+  for (let r = newRange.s.r; r <= newRange.e.r; r++) {
+    for (let c = newRange.s.c; c <= newRange.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({r,c});
+      if (ws[ref]) {
+        if (!ws[ref].s) ws[ref].s = {};
+        if (!ws[ref].s.alignment) ws[ref].s.alignment = {};
+        ws[ref].s.alignment.wrapText = true;
+      }
+    }
+  }
+  
+  // Output
+  const wb = XLSX.utils.book_new();
+  const outSheetName = tmplSheetName || 'Sheet1';
+  ws['!ref'] = XLSX.utils.encode_range(newRange);
+  XLSX.utils.book_append_sheet(wb, ws, outSheetName);
+  const proj = document.getElementById('projName').value || '套价表';
+  XLSX.writeFile(wb, proj+'_报价单.xlsx');
+  closeExportModal();
+  toast('✓ 已按模板导出：'+proj+'_报价单.xlsx');
+}
+
 function updateSum() {
   const allRows=getAllRows();
   const total=allRows.reduce((s,r)=>s+(rowTotal(r)||0),0);
@@ -2017,6 +2371,7 @@ function openUnmatchedModal() {
   try {
     await loadAuxRules();    // 旧版 keyword 规则
     await loadMaterialPrices(); // 新版信息价库
+    await loadMainMaterialCategories(); // 主材选品库
     init();
   } catch(e) { alert('启动失败: '+e.message); }
 })();

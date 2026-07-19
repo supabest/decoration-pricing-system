@@ -67,9 +67,9 @@ cd frontend && npm run dev
 | `material_prices` | 材料价格库（主材+辅材） |
 | `auxiliary_rules` | 辅材计算规则（20 条种子数据） |
 
-## 辅材套价功能（feat/material-pricing 开发中）
+## 辅材套价功能（feat/material-pricing ✅ 阶段 1-3 已完成）
 
-**当前进度**：已完成阶段 1+2，待做阶段 3。
+**当前进度**：辅材三阶段全部完成，下一步 → 主材数据库。
 
 ### 已完成
 
@@ -86,6 +86,16 @@ cd frontend && npm run dev
   - `userPriceOverrides` 按项目保存/恢复（`price_overrides` 字段存在 projects 表）
   - 旧 keyword 版 `auxiliary_rules` + `calcAuxFromRule` 保留为兜底
 
+- **阶段 3**：`docs/admin.html` 💰信息价录入页已完成（2026-07）：
+  - 三个 Tab：👥用户管理 | 💰信息价录入 | 🧠知识库
+  - 📅 月份选择器（`<input type="month">`），默认当月
+  - 动态从 `material_prices` 表加载材料列表（名称+单位+最新/上月价格）
+  - 参考列显示上月信息价（自动取 selectedMonth 之前的最近有效月份）
+  - 📋 "复制上月价格"按钮 — 一键将参考价填入本月输入框
+  - 📥 "从 Excel 粘贴" — 弹窗 textarea，支持 TSV 格式（Tab 分隔的材料名+价格），模糊匹配材料名
+  - 💾 "保存本月信息价" — PostgREST upsert（`resolution=merge-duplicates`），利用 (name, effective_month) 唯一约束
+  - 已保存行显示绿点标记，底部状态栏显示统计
+
 - **生成脚本**（可重复运行）：
   - `scripts/match_aux_to_benchmark.py` — 语义匹配 Excel→benchmark
   - `scripts/gen_aux_migration.py` — 从审核 Excel 生成 SQL，含材料名归并
@@ -100,15 +110,10 @@ benchmark_items (497条)           material_prices (21种, 按月版本化)
 
 tool.html 计算: 辅材 = fixedK + Σ(getMaterialPrice(材料) × consume)
                 getMaterialPrice: 用户覆盖价 > 信息价 > 0
+                
+admin.html 维护: 管理员每月录入 21 种材料信息价 → material_prices 表
+                 tool.html 自动取最新月份价作为默认价
 ```
-
-### 待做：阶段 3
-
-**admin.html 信息价录入页**（管理员每月更新 21 种辅材默认价）：
-- 月份选择 + 21 种材料表格（默认价 + 本月输入）
-- "复制上月价格"按钮、从 Excel 粘贴
-- 一键保存本月信息价到 `material_prices` 表
-- 位置：admin.html 新增 tab 页
 
 ### ⚠️ 部署前必须先执行
 
@@ -119,6 +124,33 @@ tool.html 计算: 辅材 = fixedK + Σ(getMaterialPrice(材料) × consume)
 3) data/seeds/seed_benchmark_aux.sql      (497 条灌入)
 ```
 不跑这三个 SQL 的话，tool.html 辅材永远是 0。
+
+### 主材数据库（2026-07 已建初版 ✅）
+
+**数据源**：`~/Documents/材料劳务价格数据库/主要材料和设备/`（22 品类目录，112 Excel 报价文件）
+
+**处理流程**：
+1. `scripts/parse_main_materials.py` — 批量解析 98 个 Excel → 5,485 条原始记录
+2. `scripts/cluster_main_materials.py` — 清洗（滤人工/项目总价）→ 材料名规范化 → 聚类 → 四档自动分档
+3. 输出 `data/seeds/main_material_categories.json`（141 组）+ `data/seeds/seed_main_materials.sql`（608行）
+
+**数据库表**：
+- `main_material_categories`: 品类 + 材料类型 + 单位 + 四档价格 + 规格样例 + 统计
+- `main_material_prices`: 按月版本化的历史价格（category_id, grade, price, effective_month）
+
+**tool.html 集成**：
+- 每行主材费旁有 📦 按钮，点击弹出选品弹窗
+- 品类下拉 → 材料类型下拉 → 四档位 radio（经济型/标准型/高端型/豪华型）
+- 选中后自动填入 matPrice + matName
+- `loadMainMaterialCategories()` 在启动时加载
+
+**141 组分布**：木饰面30 | 石材27 | 暖通15 | 铝板10 | 不锈钢9 | 卫浴五金8 | 金属门窗7 | 油漆涂料7 | 成品隔断6 | 玻璃6 | 照明4 | 织物4 | 木地板3 | 瓷砖3 | 厨房设备1 | 地毯1
+
+**后续优化**：
+- admin.html 主材价格管理 Tab（品类+档位编辑、历史价格查看）
+- 石材目录混入的木饰面报价文件需清理归类
+- 暖通设备品类可进一步细化型号
+- 在 Supabase 执行 seed_main_materials.sql 后才能使用主材选品功能
 
 1. **`docs/tool.html` JS 语法检查**：使用 `node -e "new vm.Script(js)"`，注意 localStorage 在 Node.js 中不存在，会误报
 2. **敏感数据不入 GitHub**：材料价格只存 Supabase，Excel 源文件本地保留

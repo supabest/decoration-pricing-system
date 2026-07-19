@@ -1,53 +1,51 @@
 -- ============================================
--- 装修成本分析系统 - 辅材规则库 + 基准价扩展
--- 在 Supabase Dashboard → SQL Editor 中执行
+-- 装修成本分析系统 - 辅材规则库升级 V2
+-- calc_method: FIXED / RATE / GROUP / FORMULA
 -- ============================================
 
--- 1. 基准价表增加字段
-ALTER TABLE public.benchmark_items ADD COLUMN IF NOT EXISTS auxiliary_price NUMERIC(12,2);
-ALTER TABLE public.benchmark_items ADD COLUMN IF NOT EXISTS material_price NUMERIC(12,2);
-ALTER TABLE public.benchmark_items ADD COLUMN IF NOT EXISTS material_loss_rate NUMERIC(5,2) DEFAULT 0;
+-- 1. 新增 rule_config JSONB 字段（替代旧的 params + 分散字段）
+ALTER TABLE public.auxiliary_rules ADD COLUMN IF NOT EXISTS rule_config JSONB;
+COMMENT ON COLUMN public.auxiliary_rules.rule_config IS '规则配置JSON，各类型格式：
+  FIXED: {"fixedPrice": 4.79}
+  RATE:  {"materialName":"玻璃胶","price":12,"consume":0.12,"loss":1.1,"unit":"元/支"}
+  GROUP: {"items":[{"name":"白乳胶","price":8,"consume":0.1,"loss":1.1},...]}
+  FORMULA: {"expression":"胶水*0.2+水泥*0.03+砂*0.005","variables":{"胶水":{"price":8}}}';
 
-COMMENT ON COLUMN public.benchmark_items.auxiliary_price IS '辅材固定单价（元/单位），有值则直接套用，为空则查辅材规则库计算';
-COMMENT ON COLUMN public.benchmark_items.material_price IS '主材单价（元/单位）';
-COMMENT ON COLUMN public.benchmark_items.material_loss_rate IS '主材损耗率（%），如5表示5%';
+-- 2. 从旧字段回填 rule_config
+UPDATE public.auxiliary_rules SET rule_config =
+  CASE calc_method
+    WHEN 'fixed' THEN
+      jsonb_build_object('fixedPrice', unit_price)
+    WHEN 'thickness' THEN
+      jsonb_build_object(
+        'materialName', material_name,
+        'price', unit_price,
+        'consume', ROUND((unit_price * COALESCE(params->>'thickness','0')::numeric * COALESCE(params->>'loss','1')::numeric) / unit_price, 6),
+        'loss', COALESCE(params->>'loss','1.05')::numeric,
+        'unit', unit
+      )
+    WHEN 'ratio' THEN
+      jsonb_build_object(
+        'materialName', material_name,
+        'price', unit_price,
+        'consume', ROUND(COALESCE(params->>'ratio','0')::numeric * COALESCE(params->>'loss','1')::numeric, 6),
+        'loss', COALESCE(params->>'loss','1.1')::numeric,
+        'unit', unit
+      )
+    WHEN 'per_unit' THEN
+      jsonb_build_object(
+        'materialName', material_name,
+        'price', unit_price,
+        'consume', ROUND(COALESCE(params->>'per','0')::numeric * COALESCE(params->>'loss','1')::numeric, 6),
+        'loss', COALESCE(params->>'loss','1.05')::numeric,
+        'unit', unit
+      )
+    ELSE NULL
+  END
+WHERE rule_config IS NULL AND calc_method IN ('fixed','thickness','ratio','per_unit');
 
--- 2. 辅材规则库（语言匹配版）
-DROP TABLE IF EXISTS public.auxiliary_rules CASCADE;
-CREATE TABLE public.auxiliary_rules (
-  id                BIGSERIAL PRIMARY KEY,
-  rule_name         TEXT NOT NULL,                -- 规则名称
-  trade_team        TEXT,                         -- 关联班组（空=通用）
-  work_type         TEXT,                         -- 关联工种（空=通用）
-  keyword_groups    TEXT NOT NULL,                -- 关键词组，分号=AND，逗号=OR，如"地砖,瓷砖;地面,铺贴"
-  exclude_keywords  TEXT,                         -- 排除词，命中则跳过
-  material_name     TEXT NOT NULL,                -- 辅材名称
-  calc_method       TEXT NOT NULL DEFAULT 'fixed', -- 计算方式
-  unit_price        NUMERIC(12,2) NOT NULL,       -- 辅材单价
-  unit              TEXT NOT NULL DEFAULT '元/m²', -- 单价单位
-  params            JSONB,                        -- 计算参数
-  sort_order        INTEGER DEFAULT 0,            -- 排序序号
-  remark            TEXT,
-  created_at        TIMESTAMPTZ DEFAULT now(),
-  updated_at        TIMESTAMPTZ
-);
+-- 3. 更新 calc_method 注释
+COMMENT ON COLUMN public.auxiliary_rules.calc_method IS 'FIXED=固定辅材价, RATE=材料×消耗量, GROUP=多辅材汇总, FORMULA=公式计算';
 
-COMMENT ON TABLE public.auxiliary_rules IS '辅材计算规则库：语言多维匹配，提高辅材匹配准确度';
-COMMENT ON COLUMN public.auxiliary_rules.keyword_groups IS '关键词组：分号=AND 逗号=OR，如"地砖,瓷砖;地面,铺贴"表示同时命中(地砖或瓷砖)+(地面或铺贴)';
-COMMENT ON COLUMN public.auxiliary_rules.exclude_keywords IS '排除词：项目特征含这些词则跳过此规则';
-COMMENT ON COLUMN public.auxiliary_rules.calc_method IS 'fixed=固定金额/单位, thickness=厚度×面积, ratio=用量系数, per_unit=按件计算';
-
-CREATE INDEX idx_auxiliary_rules_team ON public.auxiliary_rules(trade_team);
-
--- 3. 辅材规则 RLS
-ALTER TABLE public.auxiliary_rules ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "auxiliary_rules_read_approved" ON public.auxiliary_rules
-  FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_approved = true)
-  );
-
-CREATE POLICY "auxiliary_rules_write_admin" ON public.auxiliary_rules
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
-  );
+-- 4. 重新导入种子数据（新格式）
+-- 见 data/seeds/import_auxiliary_rules_v2.sql
