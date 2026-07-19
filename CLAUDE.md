@@ -67,10 +67,55 @@ cd frontend && npm run dev
 | `material_prices` | 材料价格库（主材+辅材） |
 | `auxiliary_rules` | 辅材计算规则（20 条种子数据） |
 
-## 辅材套价功能（feat/material-pricing ✅ 阶段 1-3 已完成）
+## 当前进度（feat/material-pricing，2026-07-19 更新）
 
-**当前进度**：辅材三阶段全部完成，下一步 → 主材数据库。
+### ✅ 已完成
 
+**辅材数据库**：3阶段全部完成
+- benchmark_items 497条辅材配方（FIXED 414 / RATE 81 / GROUP 2）
+- material_prices 21种辅材信息价，按月版本化
+- tool.html 辅材自动计价（computeAuxForRow）
+- admin.html 信息价录入页（月份选择+复制上月+Excel粘贴+Upsert保存）
+
+**主材数据库**：✅ 完成并部署
+- 3张表：main_material_categories(23品类) + main_material_catalog(226材料) + main_material_prices(226价格)
+- Supabase 已部署，数据源：`/Users/alick/Downloads/主要材料和设备 (1)/`
+- 解析脚本：parse_main_materials.py（含税/不含税分离+尺寸/厚度/颜色提取）
+- 聚类脚本：cluster_main_materials.py（同规格取最低价去重）
+- 主材选品弹窗：品类筛选+搜索+含税/不含税双价格
+- 12个品类有数据 + 11个预留待补充
+
+**tool.html 导出**：双模式
+- 方式一：配置导出（勾选列+改名+预设模板保存localStorage）
+- 方式二：模板导出（上传Excel模板→智能列匹配→填入数据→保留原格式）
+
+**admin.html**：3 Tab（用户管理+信息价录入+知识库）
+
+### ⚠️ 部署前必须执行
+
+在 Supabase SQL Editor 按顺序执行：
+```
+1) data/seeds/migration_aux_fields.sql    (ALTER TABLE benchmark_items)
+2) data/seeds/seed_material_prices.sql    (建 material_prices 表 + 21种辅材信息价)
+3) data/seeds/seed_benchmark_aux.sql      (497条辅材灌入)
+4) data/seeds/seed_main_materials.sql     (建3张主材表 + 23品类 + 226材料 + 价格)
+5) RLS策略 SQL（见 memory 文件）
+```
+不跑这些 SQL 的话，辅材和主材功能不可用。
+
+### 待做
+- 11个预留品类补充价格数据
+- 主材管理页（admin.html 新 Tab）
+- 端到端测试
+- Windows exe 打包（Tauri）
+
+### 主材更新流程
+```
+供应商新报价 Excel → 放入 主要材料和设备 (1)/对应品类/
+  → python3 scripts/parse_main_materials.py
+  → 手动审核 + 生成 UPSERT SQL
+  → Supabase 执行 → tool.html 自动取最新月份价
+```
 ### 已完成
 
 - **阶段 1**：从 `基准价2024（格式化）.xlsx` 解析 254 条辅材规则（FIXED:179 / RATE:79 / GROUP:2），语义匹配到 497 条 benchmark_items。生成 SQL 迁移文件：
