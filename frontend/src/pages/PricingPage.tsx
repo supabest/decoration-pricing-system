@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAuth } from '../context/AuthContext'
 
-const TOOL_URL = import.meta.env.BASE_URL + 'tool.html'
+const TOOL_URL = './tool.html'
 
 export default function PricingPage() {
   const { user, logout } = useAuth()
