@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { auth, Profile } from '../api'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 interface AuthState {
   user: Profile | null
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 监听 Supabase Auth 状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           syncTokenForTool()
           try {
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     // 初始化：检查已有 session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session) {
         syncTokenForTool()
         auth.getCurrentProfile().then(profile => {
