@@ -13,6 +13,9 @@ export function getChineseErrorMessage(err: any): string {
   if (msg.includes('Email not confirmed')) {
     return '邮箱尚未确认，请先检查收件箱完成验证'
   }
+  if (msg.includes('注册成功') || msg.includes('确认链接') || msg.includes('验证')) {
+    return msg // 直接返回注册成功的指引信息
+  }
   if (msg.includes('User already registered')) {
     return '该邮箱已被注册'
   }
@@ -42,6 +45,9 @@ export function getChineseErrorMessage(err: any): string {
   }
   if (msg.includes('timeout') || msg.includes('Timeout')) {
     return '请求超时，请稍后重试'
+  }
+  if (msg.includes('未找到用户信息')) {
+    return '未找到用户信息，请联系管理员'
   }
 
   // 兜底
