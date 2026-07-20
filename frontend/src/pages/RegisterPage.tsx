@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -55,7 +56,7 @@ export default function RegisterPage() {
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a2e', margin: '0 0 4px' }}>
             注册新账户
           </h1>
-          <p style={{ color: '#888', fontSize: 14, margin: 0 }}>注册后可免费试用 3 天</p>
+          <p style={{ color: '#888', fontSize: 14, margin: 0 }}>创建您的账户</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -125,21 +126,36 @@ export default function RegisterPage() {
             />
           </div>
 
-          <div style={{
-            background: '#f6f8fa', borderRadius: 8, padding: '12px 16px',
-            marginBottom: 20, fontSize: 13, color: '#666', lineHeight: 1.6,
-          }}>
-            📋 注册即表示您同意<a href="#" onClick={e => e.preventDefault()} style={{ color: '#0f3460' }}>服务条款</a>。
-            注册成功后需等待管理员审核通过方可查看数据。
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              background: '#f6f8fa', borderRadius: 8, padding: '12px 16px',
+              fontSize: 14, color: '#555', lineHeight: 1.6, cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={e => setAgreedToTerms(e.target.checked)}
+                style={{ marginTop: 2, minWidth: 16, width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span>
+                我已阅读并同意
+                <a href="#"
+                  onClick={e => { e.preventDefault(); alert('服务条款\n\n1. 本系统仅供装修成本分析参考，数据不构成商业报价。\n2. 注册后需等待管理员审核通过方可查看基准价数据。\n3. 用户应对自行输入的数据负责。') }}
+                  style={{ color: '#0f3460', fontWeight: 500 }}
+                >《服务条款》</a>
+                ，注册成功后需等待管理员审核通过方可查看数据。
+              </span>
+            </label>
           </div>
 
           <button
-            type="submit" disabled={loading}
+            type="submit" disabled={loading || !agreedToTerms}
             style={{
               width: '100%', padding: 12, borderRadius: 8,
               border: 'none', background: '#0f3460', color: '#fff',
-              fontSize: 16, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
+              fontSize: 16, fontWeight: 600, cursor: (loading || !agreedToTerms) ? 'not-allowed' : 'pointer',
+              opacity: (loading || !agreedToTerms) ? 0.6 : 1,
             }}
           >
             {loading ? '注册中...' : '注册并登录'}

@@ -118,8 +118,31 @@ export const auth = {
     if (error) throw error
     if (!data.user) throw new Error('注册失败')
 
-    // 等待数据库 trigger 创建 profile
-    await new Promise(r => setTimeout(r, 1500))
+    // 如果 email confirmation 开启，data.session 为 null
+    if (!data.session) {
+      throw new Error('注册成功！请检查邮箱并点击确认链接完成验证。验证后即可登录。')
+    }
+
+    // 等待数据库 trigger 创建 profile，带重试
+    const maxRetries = 5
+    const delays = [500, 1000, 1500, 2000, 2500]
+    for (let i = 0; i < maxRetries; i++) {
+      await new Promise(r => setTimeout(r, delays[i]))
+      const profile = await auth.getCurrentProfile()
+      if (profile) return { user: profile }
+    }
+
+    // trigger 未生效，手动创建 profile
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        username: email,
+        display_name: display_name || email.split('@')[0],
+      } as any)
+    if (insertError) throw new Error('未找到用户信息，请联系管理员')
+
+    // 再次读取刚创建的 profile
     const profile = await auth.getCurrentProfile()
     if (!profile) throw new Error('未找到用户信息，请联系管理员')
     return { user: profile }
