@@ -1,18 +1,19 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getChineseErrorMessage } from '../lib/authErrors'
 
 export default function RegisterPage() {
   const { register } = useAuth()
-  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,12 +29,60 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       await register(email, password, displayName || undefined)
-      navigate('/')
+      setSuccess(true)
     } catch (err: any) {
       setError(getChineseErrorMessage(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  const cardStyle: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: 16,
+    padding: 40,
+    width: 420,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  }
+
+  if (success) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      }}>
+        <div style={cardStyle}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>🏗️</div>
+            <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a2e', margin: '0 0 8px' }}>
+              注册提交成功
+            </h2>
+            <p style={{ color: '#666', fontSize: 14, lineHeight: 1.8, margin: '0 0 20px' }}>
+              您的账户已成功创建。<br />
+              请等待管理员审核通过后即可使用系统全部功能。
+            </p>
+            <div style={{
+              background: '#f6ffed', border: '1px solid #b7eb8f',
+              borderRadius: 8, padding: '10px 16px',
+              color: '#389e0d', fontSize: 13, marginBottom: 20,
+            }}>
+              💡 提示：审核通常在 24 小时内完成，请留意您的邮箱通知。
+            </div>
+            <Link
+              to="/login"
+              style={{
+                display: 'inline-block', width: '100%', padding: 12, borderRadius: 8,
+                border: 'none', background: '#0f3460', color: '#fff',
+                fontSize: 16, fontWeight: 600, textDecoration: 'none', textAlign: 'center',
+              }}
+            >
+              返回登录
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -44,13 +93,7 @@ export default function RegisterPage() {
       justifyContent: 'center',
       background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
     }}>
-      <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        padding: 40,
-        width: 420,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-      }}>
+      <div style={cardStyle}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>🏗️</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a2e', margin: '0 0 4px' }}>
@@ -141,12 +184,25 @@ export default function RegisterPage() {
               <span>
                 我已阅读并同意
                 <a href="#"
-                  onClick={e => { e.preventDefault(); alert('服务条款\n\n1. 本系统仅供装修成本分析参考，数据不构成商业报价。\n2. 注册后需等待管理员审核通过方可查看基准价数据。\n3. 用户应对自行输入的数据负责。') }}
+                  onClick={e => { e.preventDefault(); setShowTerms(!showTerms) }}
                   style={{ color: '#0f3460', fontWeight: 500 }}
                 >《服务条款》</a>
                 ，注册成功后需等待管理员审核通过方可查看数据。
               </span>
             </label>
+            {showTerms && (
+              <div style={{
+                background: '#fafbfc', border: '1px solid #e8e8e8', borderRadius: 8,
+                padding: '12px 16px', marginTop: 8, fontSize: 13, color: '#555', lineHeight: 1.8,
+              }}>
+                <strong>服务条款</strong>
+                <ol style={{ margin: '8px 0 0 16px', padding: 0 }}>
+                  <li>本系统仅供装修成本分析参考，数据不构成商业报价。</li>
+                  <li>注册后需等待管理员审核通过方可查看基准价数据。</li>
+                  <li>用户应对自行输入的数据负责。</li>
+                </ol>
+              </div>
+            )}
           </div>
 
           <button
