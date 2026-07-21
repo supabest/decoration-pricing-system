@@ -91,13 +91,42 @@ export const auth = {
       email,
       password,
     })
-    if (error) throw error
+    if (error) {
+      // 邮箱未确认：尝试 RPC 自动确认后重试
+      if (error.message?.includes('Email not confirmed')) {
+        const rpcOk = await supabase.rpc('confirm_my_email').then(() => true, () => false)
+        if (rpcOk) {
+          const retry = await supabase.auth.signInWithPassword({ email, password })
+          if (!retry.error && retry.data.user) {
+            return auth._finishLogin(retry.data.user, email)
+          }
+        }
+      }
+      throw error
+    }
     if (!data.user) throw new Error('登录失败')
+    return auth._finishLogin(data.user, email)
+  },
 
-    const profile = await auth.getCurrentProfile()
-    if (!profile) throw new Error('未找到用户信息')
+  /** 登录辅助：获取/创建 profile */
+  _finishLogin: async (supabaseUser: any, email: string): Promise<{ user: Profile }> => {
+    let profile = await auth.getCurrentProfile()
+    if (!profile) {
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: supabaseUser.id,
+          username: email,
+          display_name: supabaseUser.user_metadata?.display_name || email.split('@')[0],
+        } as any)
+      if (!insertError) {
+        profile = await auth.getCurrentProfile()
+      }
+    }
+    if (!profile) throw new Error('未找到用户信息，请联系管理员')
     return { user: profile }
   },
+
 
   /** 注册 */
   register: async (
