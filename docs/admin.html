@@ -10,7 +10,15 @@
 body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font-size:14px}
 .hdr{background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .hdr-title{font-size:15px;font-weight:700;color:#1a1a2e}
-.content{max-width:800px;margin:0 auto;padding:24px}
+.content{max-width:900px;margin:0 auto;padding:24px}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #e8e8e8;margin-bottom:20px}
+.tab-btn{padding:8px 20px;border:none;background:transparent;color:#888;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;font-family:inherit}
+.tab-btn:hover{color:#555}
+.tab-btn.active{color:#1a1a2e;border-bottom-color:#1d6fa5;font-weight:600}
+
+/* Sections */
 .section{margin-bottom:28px}
 .section h3{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .card{background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:10px 14px;margin-bottom:4px;transition:background .12s}
@@ -28,11 +36,47 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
 .btn-sm{padding:3px 10px;font-size:11px}
 .btn-suc{background:#f6ffed;border-color:#0b7b50;color:#0b7b50;font-weight:600}
 .btn-suc:hover{background:#e8f8e0}
+.btn-pri{background:#e6f7ff;border-color:#1d6fa5;color:#1d6fa5;font-weight:600}
+.btn-pri:hover{background:#d4edfa}
+.btn-warn{background:#fffbe6;border-color:#b07000;color:#b07000}
+.btn-warn:hover{background:#fff3c4}
 .empty{text-align:center;padding:24px;color:#888;font-size:13px}
 .hidden{display:none!important}
+
+/* Messages */
 #msg{padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;display:none}
 #msg.err{background:#fff2f0;border:1px solid #ffccc7;color:#cf1322;display:block}
 #msg.ok{background:#f6ffed;border:1px solid #b7eb8f;color:#389e0d;display:block}
+
+/* ── 信息价录入 ── */
+.price-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.price-toolbar label{font-size:13px;font-weight:600;color:#555}
+.price-toolbar input[type="month"]{padding:4px 8px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;font-family:inherit}
+.price-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e8e8e8}
+.price-table th{background:#fafbfc;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:#888;border-bottom:1px solid #e8e8e8;white-space:nowrap}
+.price-table td{padding:6px 10px;border-bottom:1px solid #f0f0f0;font-size:13px}
+.price-table tr:last-child td{border-bottom:none}
+.price-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.price-table input[type="number"]{width:100px;padding:4px 6px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;text-align:right;font-family:inherit}
+.price-table input[type="number"]:focus{border-color:#1d6fa5;outline:none;box-shadow:0 0 0 2px rgba(29,111,165,.12)}
+.price-table .ref-price{color:#888;font-size:12px}
+.price-table .mat-name{font-weight:500}
+.price-table .saved-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#0b7b50;margin-left:4px;vertical-align:middle}
+
+/* Modal overlay */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal-box{background:#fff;border-radius:12px;padding:20px 24px;max-width:560px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.15)}
+.modal-box h3{font-size:14px;margin-bottom:10px}
+.modal-box textarea{width:100%;height:200px;border:1px solid #d9d9d9;border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical}
+.modal-box textarea:focus{border-color:#1d6fa5;outline:none}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+
+/* Status bar */
+.status-bar{font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:6px}
+.status-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-bar .dot.ok{background:#0b7b50}
+.status-bar .dot.warn{background:#faad14}
+.status-bar .dot.err{background:#cf1322}
 </style>
 </head>
 <body>
@@ -50,24 +94,94 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
 <div id="content" class="content hidden">
   <div id="msg"></div>
 
-  <div class="section">
-    <h3>👥 待审批用户 <span id="pendingCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
-    <div id="pendingUsers"></div>
+  <!-- Tab 导航 -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="users" onclick="switchTab('users')">👥 用户管理</button>
+    <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">💰 信息价录入</button>
+    <button class="tab-btn" data-tab="knowledge" onclick="switchTab('knowledge')">🧠 知识库</button>
   </div>
 
-  <div class="section">
-    <h3>👤 全部用户</h3>
-    <div id="allUsers"></div>
+  <!-- ═══════════ Tab 1: 用户管理 ═══════════ -->
+  <div id="tab-users" class="tab-content">
+    <div class="section">
+      <h3>👥 待审批用户 <span id="pendingCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+      <div id="pendingUsers"></div>
+    </div>
+
+    <div class="section">
+      <h3>👤 全部用户</h3>
+      <div id="allUsers"></div>
+    </div>
+
+    <div class="section">
+      <h3>📊 待补充基准价 <span id="unmatchedCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+      <div id="unmatchedItems" style="font-size:12px;color:#888"></div>
+    </div>
+
+    <div class="section">
+      <h3>💬 意见反馈 <span id="fbCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
+      <div id="feedbackItems" style="font-size:12px;color:#888"></div>
+    </div>
   </div>
 
-  <div class="section">
-    <h3>📊 待补充基准价 <span id="unmatchedCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
-    <div id="unmatchedItems" style="font-size:12px;color:#888"></div>
+  <!-- ═══════════ Tab 2: 信息价录入 ═══════════ -->
+  <div id="tab-prices" class="tab-content hidden">
+    <div id="priceMsg"></div>
+
+    <div class="price-toolbar">
+      <label for="priceMonth">📅 录入月份：</label>
+      <input type="month" id="priceMonth" onchange="onPriceMonthChange()">
+      <button class="btn" onclick="copyLastMonth()" title="将上月价格复制到本月输入框">📋 复制上月价格</button>
+      <button class="btn btn-warn" onclick="showPasteModal()">📥 从 Excel 粘贴</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-pri" onclick="saveMonthPrices()">💾 保存本月信息价</button>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="price-table" id="priceTable">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th>材料名称</th>
+            <th style="width:60px">单位</th>
+            <th style="width:110px" class="num">上月信息价</th>
+            <th style="width:120px" class="num">本月信息价</th>
+            <th style="width:80px">来源</th>
+          </tr>
+        </thead>
+        <tbody id="priceTbody">
+          <tr><td colspan="6" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="status-bar" id="priceStatus"></div>
   </div>
 
-  <div class="section">
-    <h3>💬 意见反馈 <span id="fbCount" style="font-size:11px;color:#888;font-weight:400"></span></h3>
-    <div id="feedbackItems" style="font-size:12px;color:#888"></div>
+  <!-- ═══════════ Tab 3: 知识库 ═══════════ -->
+  <div id="tab-knowledge" class="tab-content hidden">
+    <div class="section">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <h3 style="margin:0">🧠 AI 知识库</h3>
+        <button class="btn btn-suc btn-sm" onclick="addKnowledge()">+ 新增</button>
+      </div>
+      <div id="knowledgeItems"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Excel 粘贴弹窗 -->
+<div id="pasteModal" class="modal-overlay hidden" onclick="if(event.target===this)hidePasteModal()">
+  <div class="modal-box">
+    <h3>📥 从 Excel 粘贴材料价格</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">
+      在 Excel 中选中「材料名称 + 价格」两列（或三列含单位），Ctrl+C 复制，然后在此处 Ctrl+V 粘贴。<br>
+      格式：<code>材料名称 → 单位 → 价格</code>（Tab 分隔，单位列可选）
+    </p>
+    <textarea id="pasteArea" placeholder="在此粘贴 Excel 数据...&#10;例：&#10;水泥砂浆	m³	360&#10;9mm石膏板	m²	16.5&#10;C15细石混凝土	m3	355"></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="hidePasteModal()">取消</button>
+      <button class="btn btn-pri" onclick="applyPaste()">✅ 识别并填入</button>
+    </div>
   </div>
 </div>
 
@@ -77,17 +191,30 @@ const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-async function load() {
+// ═══════════ 通用：Auth header 获取 ═══════════
+function authHeaders() {
+  const token = localStorage.getItem('sb-access-token');
+  return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
+}
+
+// ═══════════ Tab 切换 ═══════════
+let currentTab = 'users';
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'tab-' + tab));
+  if (tab === 'prices') initPriceEntry();
+  if (tab === 'knowledge') loadKnowledge();
+}
+
+// ═══════════ 用户管理 Tab（原 load 逻辑） ═══════════
+async function loadUsers() {
   const token = localStorage.getItem('sb-access-token');
   const user = JSON.parse(localStorage.getItem('sb-user')||'{}');
   if (!token) { showMsg('请先登录', true); return; }
-
   document.getElementById('userLabel').textContent = user.email || user.id || '';
-
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
+  const h = authHeaders();
   const g = async (url) => { const r=await fetch(url,{headers:h}); if(!r.ok)throw new Error(await r.text()); return r.json(); };
-  const p = async (url,body) => { await fetch(url,{method:'PATCH',headers:{...h,'Prefer':'return=minimal'},body:JSON.stringify(body)}); };
-
   try {
     // 待审批用户
     const pending = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&is_approved=eq.false&order=created_at.asc');
@@ -128,15 +255,11 @@ async function load() {
       '<div style="margin-top:2px">'+esc(f.fb_desc)+'</div></div>'
     ).join('');
 
-    document.getElementById('loadMsg').classList.add('hidden');
-    document.getElementById('content').classList.remove('hidden');
   } catch(e) {
     if (e.message.includes('JWT')) {
       localStorage.removeItem('sb-access-token');
       showMsg('Token已过期，请重新登录', true);
-    } else {
-      showMsg('加载失败：'+e.message.substring(0,80), true);
-    }
+    } else { showMsg('加载失败：'+e.message.substring(0,80), true); }
   }
 }
 
@@ -148,20 +271,285 @@ function showMsg(msg, isErr) {
 }
 
 async function approve(id) {
-  const token = localStorage.getItem('sb-access-token');
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  const h = {...authHeaders(),'Prefer':'return=minimal'};
   await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({is_approved:true,approved_at:new Date().toISOString()})});
-  load();
+  loadUsers();
 }
 async function setAdmin(id) {
   if (!confirm('设为管理员？')) return;
-  const token = localStorage.getItem('sb-access-token');
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  const h = {...authHeaders(),'Prefer':'return=minimal'};
   await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({is_admin:true,is_approved:true})});
-  load();
+  loadUsers();
 }
 
-// ═══════════ AI 知识库管理 ═══════════
+// ═══════════ 信息价录入 Tab ═══════════
+let priceData = [];       // [{name, unit, lastPrice, lastMonth, currentInput: <input element>}]
+let selectedMonth = '';   // YYYY-MM
+
+function getMonthStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return y + '-' + m;
+}
+
+function priceMsg(text, isErr) {
+  const el = document.getElementById('priceMsg');
+  el.textContent = text; el.className = '';
+  if (!text) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.padding = '8px 14px'; el.style.borderRadius = '6px'; el.style.marginBottom = '10px'; el.style.fontSize = '13px';
+  el.style.background = isErr ? '#fff2f0' : '#f6ffed';
+  el.style.border = '1px solid ' + (isErr ? '#ffccc7' : '#b7eb8f');
+  el.style.color = isErr ? '#cf1322' : '#389e0d';
+}
+
+async function initPriceEntry() {
+  // 默认选当前月份
+  if (!selectedMonth) {
+    const now = new Date();
+    selectedMonth = getMonthStr(now);
+    document.getElementById('priceMonth').value = selectedMonth;
+  }
+
+  const h = authHeaders();
+  try {
+    // 获取所有 material_prices 记录，按月份降序
+    const r = await fetch(SUPABASE_URL+'/rest/v1/material_prices?select=*&order=effective_month.desc&limit=500',{headers:h});
+    if (!r.ok) throw new Error(await r.text());
+    const all = await r.json();
+
+    // 按材料名分组，取最新月份的 unit + price 作参考
+    const matMap = {}; // name -> {unit, latestPrice, latestMonth, prevPrice, prevMonth}
+    all.forEach(it => {
+      if (!matMap[it.name]) {
+        matMap[it.name] = {unit: it.unit||'', latestPrice: null, latestMonth: '', prevPrice: null, prevMonth: ''};
+      }
+      const m = matMap[it.name];
+      if (!m.latestMonth || it.effective_month > m.latestMonth) {
+        // 把当前 latest 推到 prev
+        if (m.latestMonth) { m.prevPrice = m.latestPrice; m.prevMonth = m.latestMonth; }
+        m.latestPrice = parseFloat(it.price)||0;
+        m.latestMonth = it.effective_month;
+        m.unit = it.unit || m.unit;
+      } else if (!m.prevMonth || it.effective_month > m.prevMonth) {
+        m.prevPrice = parseFloat(it.price)||0;
+        m.prevMonth = it.effective_month;
+      }
+      // 更新 unit（取最新非空）
+      if (it.unit && !m.unit) m.unit = it.unit;
+    });
+
+    // 构建数组
+    priceData = Object.entries(matMap).map(([name, info]) => ({
+      name,
+      unit: info.unit,
+      lastPrice: info.latestPrice,
+      lastMonth: info.latestMonth,
+      prevPrice: info.prevPrice,
+      prevMonth: info.prevMonth
+    }));
+    // 按名称排序
+    priceData.sort((a,b) => a.name.localeCompare(b.name, 'zh'));
+
+    renderPriceTable();
+
+    // 检查本月是否已有数据
+    const thisMonthRecords = all.filter(it => it.effective_month === selectedMonth);
+    if (thisMonthRecords.length > 0) {
+      priceMsg('✅ 本月已有 ' + thisMonthRecords.length + ' 条记录，修改后保存将更新已有记录', false);
+    } else {
+      priceMsg('📝 本月暂无记录，请录入信息价后保存', false);
+    }
+  } catch(e) {
+    priceMsg('加载失败：'+e.message.substring(0,100), true);
+  }
+}
+
+function onPriceMonthChange() {
+  selectedMonth = document.getElementById('priceMonth').value;
+  // 重新渲染（会清空输入框），然后检查是否需要加载上月数据
+  initPriceEntry();
+}
+
+function renderPriceTable() {
+  const tbody = document.getElementById('priceTbody');
+  if (!priceData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:40px">暂无材料数据，请先在 Supabase 执行 seed_material_prices.sql</td></tr>';
+    return;
+  }
+
+  // 计算「上月」参考价：取 <= selectedMonth 前的最近一个月
+  const thisMonth = selectedMonth;
+
+  tbody.innerHTML = priceData.map((m, i) => {
+    // 找 selectedMonth 之前的最近有效价格作为「上月参考」
+    let refPrice = m.lastPrice;
+    let refLabel = m.lastMonth || '无';
+    if (m.lastMonth && m.lastMonth >= thisMonth) {
+      // 最新价就是本月或更晚，取 prev 做参考
+      refPrice = m.prevPrice || 0;
+      refLabel = m.prevMonth || '无';
+    }
+
+    // 检查本月是否已有保存的值
+    let currentVal = '';
+    let saved = false;
+    if (m.lastMonth === thisMonth) {
+      currentVal = m.lastPrice;
+      saved = true;
+    }
+
+    return '<tr>' +
+      '<td style="color:#aaa;font-size:11px">' + (i+1) + '</td>' +
+      '<td class="mat-name">' + esc(m.name) + (saved ? '<span class="saved-dot" title="本月已保存"></span>' : '') + '</td>' +
+      '<td style="color:#888">' + esc(m.unit) + '</td>' +
+      '<td class="num ref-price" title="来源月份：' + esc(refLabel) + '">' + (refPrice ? refPrice.toFixed(2) + ' <span style="font-size:10px">('+esc(refLabel)+')</span>' : '—') + '</td>' +
+      '<td class="num"><input type="number" step="any" min="0" id="pricerow_'+i+'" value="' + currentVal + '" placeholder="输入价格" onchange="onPriceInput()"></td>' +
+      '<td style="color:#aaa;font-size:11px">' + (saved ? '已保存' : '—') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  updateStatus();
+}
+
+function onPriceInput() {
+  updateStatus();
+}
+
+function updateStatus() {
+  const total = priceData.length;
+  let filled = 0, saved = 0;
+  priceData.forEach((m, i) => {
+    let hasSaved = (m.lastMonth === selectedMonth);
+    if (hasSaved) saved++;
+    const inp = document.getElementById('pricerow_' + i);
+    if (inp && inp.value !== '') filled++;
+  });
+  const el = document.getElementById('priceStatus');
+  el.innerHTML =
+    '<span class="dot '+(saved>0?'ok':'')+'"></span>' +
+    ' 共 ' + total + ' 种材料，' +
+    '已填 ' + filled + ' 种' +
+    (saved > 0 ? '，本月已保存 ' + saved + ' 种' : '');
+}
+
+async function copyLastMonth() {
+  // 把「上月参考价」填入本月输入框
+  const thisMonth = selectedMonth;
+  priceData.forEach((m, i) => {
+    let refPrice = m.lastPrice;
+    if (m.lastMonth && m.lastMonth >= thisMonth) {
+      refPrice = m.prevPrice || 0;
+    }
+    const inp = document.getElementById('pricerow_' + i);
+    if (inp && refPrice > 0) {
+      inp.value = refPrice.toFixed(2);
+    }
+  });
+  updateStatus();
+  priceMsg('📋 已将上月价格复制到本月输入框，请检查后保存', false);
+}
+
+// ═══════════ Excel 粘贴 ═══════════
+function showPasteModal() {
+  document.getElementById('pasteModal').classList.remove('hidden');
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('pasteArea').focus();
+}
+function hidePasteModal() {
+  document.getElementById('pasteModal').classList.add('hidden');
+}
+
+function applyPaste() {
+  const raw = document.getElementById('pasteArea').value.trim();
+  if (!raw) { hidePasteModal(); return; }
+
+  const lines = raw.split(/\r?\n/).filter(l => l.trim());
+  let matchCount = 0, unmatchCount = 0;
+
+  const nameIndex = {}; // name -> priceData index
+  priceData.forEach((m, i) => {
+    nameIndex[m.name] = i;
+    // 简化匹配：去掉空格
+    nameIndex[m.name.replace(/\s+/g, '')] = i;
+  });
+
+  lines.forEach(line => {
+    const parts = line.split('\t');
+    // 至少要有材料名和价格
+    if (parts.length < 2) return;
+    const matName = parts[0].trim();
+    let priceStr = '';
+    if (parts.length === 2) {
+      priceStr = parts[1].trim();
+    } else {
+      // 三列以上：第二列可能是单位，最后一列为价格
+      priceStr = parts[parts.length - 1].trim();
+    }
+    const price = parseFloat(priceStr);
+    if (isNaN(price)) return;
+
+    // 精确匹配
+    let idx = nameIndex[matName];
+    if (idx === undefined) {
+      // 模糊匹配：去空格
+      idx = nameIndex[matName.replace(/\s+/g, '')];
+    }
+    if (idx !== undefined) {
+      const inp = document.getElementById('pricerow_' + idx);
+      if (inp) { inp.value = price; matchCount++; }
+    } else {
+      unmatchCount++;
+    }
+  });
+
+  hidePasteModal();
+  updateStatus();
+  let msg = '✅ 识别并填入 ' + matchCount + ' 条价格';
+  if (unmatchCount > 0) msg += '，' + unmatchCount + ' 条未匹配（材料名找不到对应）';
+  priceMsg(msg, unmatchCount > matchCount);
+}
+
+// ═══════════ 保存 ═══════════
+async function saveMonthPrices() {
+  if (!selectedMonth) { priceMsg('请先选择月份', true); return; }
+
+  const rows = [];
+  priceData.forEach((m, i) => {
+    const inp = document.getElementById('pricerow_' + i);
+    if (!inp || inp.value === '') return;
+    const price = parseFloat(inp.value);
+    if (isNaN(price) || price < 0) return;
+    rows.push({
+      name: m.name,
+      unit: m.unit,
+      price: price,
+      effective_month: selectedMonth,
+      source: '管理员录入'
+    });
+  });
+
+  if (!rows.length) { priceMsg('⚠️ 没有可保存的数据，请先输入价格', true); return; }
+
+  const h = {...authHeaders(), 'Prefer': 'resolution=merge-duplicates'};
+  try {
+    // Upsert: 利用 (name, effective_month) 唯一约束自动合并
+    const r = await fetch(SUPABASE_URL+'/rest/v1/material_prices', {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify(rows)
+    });
+    if (!r.ok) { const err = await r.text(); throw new Error(err); }
+
+    priceMsg('✅ 已保存 ' + rows.length + ' 条信息价到 ' + selectedMonth, false);
+    // 刷新显示
+    await initPriceEntry();
+  } catch(e) {
+    priceMsg('❌ 保存失败：' + e.message.substring(0, 150), true);
+  }
+}
+
+// ═══════════ 知识库 Tab ═══════════
 async function loadKnowledge() {
   const token = localStorage.getItem('sb-access-token');
   const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
@@ -194,47 +582,49 @@ async function addKnowledge() {
   const con = prompt('内容描述：');
   if (!con) return;
   const team = prompt('适用班组（选填）：') || '';
-  const token = localStorage.getItem('sb-access-token');
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  const h = {...authHeaders(),'Prefer':'return=minimal'};
   await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge',{method:'POST',headers:h,body:JSON.stringify([{category:cat,keyword:key,content:con,team:team}])});
   loadKnowledge();
 }
 
 async function editKnowledge(id) {
+  const token = localStorage.getItem('sb-access-token');
+  const h = {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
+  const r = await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?select=content,team&id=eq.'+id,{headers:h});
+  const cur = await r.json();
+  const curItem = Array.isArray(cur) && cur[0] ? cur[0] : {content:'',team:''};
   const el = document.getElementById('k'+id);
   if (!el) return;
   const cat = prompt('分类：', el.querySelector('.badge')?.textContent || '');
   if (!cat) return;
   const key = prompt('关键词：', el.querySelector('[style*="font-weight:600"]')?.textContent || '');
   if (!key) return;
-  // Find the content div (there's a specific structure)
-  const token = localStorage.getItem('sb-access-token');
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
-  // We need the current content and team — fetch from server
-  const r = await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?select=content,team&id=eq.'+id,{headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token}});
-  const cur = await r.json();
-  const curItem = Array.isArray(cur) && cur[0] ? cur[0] : {content:'',team:''};
   const con = prompt('内容描述：', curItem.content||'');
   if (!con) return;
   const team = prompt('适用班组（选填）：', curItem.team||'') || '';
-  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({category:cat,keyword:key,content:con,team:team})});
+  const h2 = {...authHeaders(),'Prefer':'return=minimal'};
+  await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=eq.'+id,{method:'PATCH',headers:h2,body:JSON.stringify({category:cat,keyword:key,content:con,team:team})});
   loadKnowledge();
 }
 
 async function delKnowledge(id) {
   if (!confirm('确认删除此知识条目？')) return;
-  const token = localStorage.getItem('sb-access-token');
-  const h = {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token,'Prefer':'return=minimal'};
+  const h = {...authHeaders(),'Prefer':'return=minimal'};
   await fetch(SUPABASE_URL+'/rest/v1/ai_knowledge?id=eq.'+id,{method:'DELETE',headers:h});
   loadKnowledge();
 }
 
-// 在 load() 中增加知识库加载
-const origLoad = load;
-load = async function() {
-  await origLoad();
-  if (document.getElementById('knowledgeItems')) loadKnowledge();
-};
+// ═══════════ 初始化 ═══════════
+async function load() {
+  const token = localStorage.getItem('sb-access-token');
+  if (!token) {
+    showMsg('请先登录（打开 tool.html 登录后回到此页面）', true);
+    return;
+  }
+  document.getElementById('loadMsg').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  await loadUsers();
+}
 
 load();
 </script>

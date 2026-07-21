@@ -150,8 +150,12 @@ export default function BenchmarkPage() {
                   <th style={thStyle}>编号</th>
                   <th style={thStyle}>工种</th>
                   <th style={{ ...thStyle, textAlign: 'left' }}>项目名称</th>
-                  <th style={{ ...thStyle, width: 80 }}>单位</th>
-                  <th style={{ ...thStyle, width: 110, textAlign: 'right' }}>人工综合单价</th>
+                  <th style={{ ...thStyle, width: 70 }}>单位</th>
+                  <th style={{ ...thStyle, width: 100, textAlign: 'right' }}>人工费</th>
+                  <th style={{ ...thStyle, width: 90, textAlign: 'right' }}>辅材费</th>
+                  <th style={{ ...thStyle, width: 90, textAlign: 'right' }}>主材费</th>
+                  <th style={{ ...thStyle, width: 70, textAlign: 'center' }}>损耗</th>
+                  <th style={{ ...thStyle, width: 100, textAlign: 'right' }}>综合单价</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,6 +183,25 @@ export default function BenchmarkPage() {
                     <td style={tdStyle}>{item.unit}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#cf1322' }}>
                       ¥{Number(item.unit_price).toFixed(2)}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: item.auxiliary_price ? '#d46b08' : '#bbb' }}>
+                      {item.auxiliary_price ? `¥${Number(item.auxiliary_price).toFixed(2)}` : '—'}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: item.material_price ? '#0f3460' : '#bbb' }}>
+                      {item.material_price ? `¥${Number(item.material_price).toFixed(2)}` : '—'}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'center', color: '#666' }}>
+                      {item.material_loss_rate ? `${Number(item.material_loss_rate).toFixed(0)}%` : '—'}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#1a1a2e' }}>
+                      {(() => {
+                        const labor = Number(item.unit_price) || 0
+                        const aux = Number(item.auxiliary_price) || 0
+                        const mat = Number(item.material_price) || 0
+                        const loss = (Number(item.material_loss_rate) || 0) / 100
+                        const total = labor + aux + mat * (1 + loss)
+                        return `¥${total.toFixed(2)}`
+                      })()}
                     </td>
                   </tr>
                 ))}
