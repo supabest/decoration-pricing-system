@@ -38,7 +38,6 @@ logs/
 # Reports
 *.pdf
 *.xlsx
-!data/seeds/*.xlsx
 
 # Node
 frontend/node_modules/
@@ -53,6 +52,9 @@ htmlcov/
 .coverage
 .coverage.*
 coverage/
+
+# Seed data (contains actual pricing info — must not be on GitHub)
+data/seeds/
 
 # Database
 *.db
