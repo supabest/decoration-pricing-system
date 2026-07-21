@@ -3,10 +3,14 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-ro
 import { AuthProvider, useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import Dashboard from './pages/Dashboard'
 import BenchmarkPage from './pages/BenchmarkPage'
 import RulesPage from './pages/RulesPage'
 import ApprovalPage from './pages/ApprovalPage'
 import UnpricedItemsPage from './pages/UnpricedItemsPage'
+import AuxiliaryRulesPage from './pages/AuxiliaryRulesPage'
+import PricingPage from './pages/PricingPage'
+import MaterialPricePage from './pages/MaterialPricePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -23,7 +27,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <div style={{ padding: 80, textAlign: 'center', color: '#888' }}>⏳ 加载中...</div>
   }
   if (!user) return <Navigate to="/login" replace />
-  if (!user.is_admin) return <Navigate to="/" replace />
+  if (!user.is_admin) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -32,9 +36,15 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
 
   const navItems = [
+    { path: '/dashboard', label: '工作台', emoji: '🏠' },
+    { path: '/pricing', label: '套价工具', emoji: '🧮' },
     { path: '/', label: '基准价查询', emoji: '📊' },
+    { path: '/auxiliary-rules', label: '辅材规则', emoji: '🧱' },
+    { path: '/material-prices', label: '材料信息价', emoji: '💰' },
     { path: '/rules', label: '基准价说明', emoji: '📄' },
-    ...(user?.is_admin ? [{ path: '/unpriced', label: '补缺清单', emoji: '🧩' }] : []),
+    ...(user?.is_admin ? [
+      { path: '/unpriced', label: '补缺清单', emoji: '🧩' },
+    ] : []),
   ]
 
   return (
@@ -46,28 +56,32 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         justifyContent: 'space-between', height: 56, position: 'sticky', top: 0, zIndex: 100,
         boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+               onClick={() => { window.location.hash = '#/dashboard' }}>
             <span style={{ fontSize: 22 }}>🏗️</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1a2e' }}>
               装修成本分析系统
             </span>
           </div>
-          <nav style={{ display: 'flex', gap: 4 }}>
-            {navItems.map(item => (
-              <Link
-                key={item.path}
-                to={item.path}
-                style={{
-                  padding: '8px 14px', borderRadius: 8, textDecoration: 'none',
-                  fontSize: 14, fontWeight: location.pathname === item.path ? 600 : 400,
-                  color: location.pathname === item.path ? '#0f3460' : '#666',
-                  background: location.pathname === item.path ? '#f0f5ff' : 'transparent',
-                }}
-              >
-                {item.emoji} {item.label}
-              </Link>
-            ))}
+          <nav style={{ display: 'flex', gap: 2 }}>
+            {navItems.map(item => {
+              const isActive = location.pathname === item.path
+              return (
+                <Link
+                  key={item.path + item.label}
+                  to={item.path}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, textDecoration: 'none',
+                    fontSize: 13, fontWeight: isActive ? 600 : 400,
+                    color: isActive ? '#0f3460' : '#666',
+                    background: isActive ? '#f0f5ff' : 'transparent',
+                  }}
+                >
+                  {item.emoji} {item.label}
+                </Link>
+              )
+            })}
           </nav>
         </div>
 
@@ -114,6 +128,24 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/approval" element={<ApprovalPage />} />
+
+      {/* Dashboard — 登录后首页 */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <Dashboard />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* 套价工具（全屏，不用外层导航，避免 tool.html header 重复） */}
+      <Route path="/pricing" element={
+        <ProtectedRoute>
+          <PricingPage />
+        </ProtectedRoute>
+      } />
+
+      {/* 基准价查询（保持兼容旧版 / 入口） */}
       <Route path="/" element={
         <ProtectedRoute>
           <AppLayout>
@@ -121,6 +153,8 @@ function AppRoutes() {
           </AppLayout>
         </ProtectedRoute>
       } />
+
+      {/* 基准价说明 */}
       <Route path="/rules" element={
         <ProtectedRoute>
           <AppLayout>
@@ -128,14 +162,36 @@ function AppRoutes() {
           </AppLayout>
         </ProtectedRoute>
       } />
-      <Route path="/unpriced" element={
+
+      {/* 辅材规则管理 */}
+      <Route path="/auxiliary-rules" element={
         <ProtectedRoute>
           <AppLayout>
-            <UnpricedItemsPage />
+            <AuxiliaryRulesPage />
           </AppLayout>
         </ProtectedRoute>
       } />
-      <Route path="*" element={<Navigate to="/" replace />} />
+
+      {/* 材料信息价管理 */}
+      <Route path="/material-prices" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <MaterialPricePage />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      {/* 管理员：补缺清单 */}
+      <Route path="/unpriced" element={
+        <AdminRoute>
+          <AppLayout>
+            <UnpricedItemsPage />
+          </AppLayout>
+        </AdminRoute>
+      } />
+
+      {/* 未匹配路由 → 工作台 */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
