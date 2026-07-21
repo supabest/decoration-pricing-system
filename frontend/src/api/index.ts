@@ -133,7 +133,7 @@ export const auth = {
     email: string,
     password: string,
     display_name?: string
-  ): Promise<{ user: Profile }> => {
+  ): Promise<{ user: Profile | null }> => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -147,34 +147,30 @@ export const auth = {
     if (error) throw error
     if (!data.user) throw new Error('注册失败')
 
-    // 如果 email confirmation 开启，data.session 为 null
-    if (!data.session) {
-      throw new Error('注册成功！请检查邮箱并点击确认链接完成验证。验证后即可登录。')
+    // 有 session（email confirmation 关闭）：确保 profile 已创建后登出，等待管理员审批
+    if (data.session) {
+      // 等待数据库 trigger 创建 profile，带重试
+      const delays = [500, 1000, 1500, 2000, 2500]
+      for (let i = 0; i < delays.length; i++) {
+        await new Promise(r => setTimeout(r, delays[i]))
+        const profile = await auth.getCurrentProfile()
+        if (profile) break
+      }
+      // trigger 未生效时手动创建 profile（已存在则忽略）
+      await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          username: email,
+          display_name: display_name || email.split('@')[0],
+        } as any)
+        .then(() => {}, () => {})
+      // 注册后不自动登录，等待管理员审批通过
+      await supabase.auth.signOut()
     }
 
-    // 等待数据库 trigger 创建 profile，带重试
-    const maxRetries = 5
-    const delays = [500, 1000, 1500, 2000, 2500]
-    for (let i = 0; i < maxRetries; i++) {
-      await new Promise(r => setTimeout(r, delays[i]))
-      const profile = await auth.getCurrentProfile()
-      if (profile) return { user: profile }
-    }
-
-    // trigger 未生效，手动创建 profile
-    const { error: insertError } = await supabase
-      .from('profiles')
-      .insert({
-        id: data.user.id,
-        username: email,
-        display_name: display_name || email.split('@')[0],
-      } as any)
-    if (insertError) throw new Error('未找到用户信息，请联系管理员')
-
-    // 再次读取刚创建的 profile
-    const profile = await auth.getCurrentProfile()
-    if (!profile) throw new Error('未找到用户信息，请联系管理员')
-    return { user: profile }
+    // email confirmation 开启（无 session）或已登出：返回 null，注册页显示"已提交审核"
+    return { user: null }
   },
 
   /** 退出 */

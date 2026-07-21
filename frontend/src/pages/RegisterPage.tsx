@@ -56,18 +56,18 @@ export default function RegisterPage() {
             <div style={{ fontSize: 48, marginBottom: 8 }}>🏗️</div>
             <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a1a2e', margin: '0 0 8px' }}>
-              注册提交成功
+              已提交审核
             </h2>
             <p style={{ color: '#666', fontSize: 14, lineHeight: 1.8, margin: '0 0 20px' }}>
-              您的账户已成功创建。<br />
-              请等待管理员审核通过后即可使用系统全部功能。
+              您的注册申请已提交。<br />
+              待管理员审核通过后即可直接登录使用。
             </p>
             <div style={{
               background: '#f6ffed', border: '1px solid #b7eb8f',
               borderRadius: 8, padding: '10px 16px',
               color: '#389e0d', fontSize: 13, marginBottom: 20,
             }}>
-              💡 提示：审核通常在 24 小时内完成，请留意您的邮箱通知。
+              💡 提示：审核通过后即可使用邮箱和密码直接登录，无需等待通知。
             </div>
             <Link
               to="/login"
@@ -214,7 +214,7 @@ export default function RegisterPage() {
               opacity: (loading || !agreedToTerms) ? 0.6 : 1,
             }}
           >
-            {loading ? '注册中...' : '注册并登录'}
+            {loading ? '注册中...' : '注册'}
           </button>
         </form>
 
