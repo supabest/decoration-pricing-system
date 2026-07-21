@@ -147,29 +147,33 @@ export const auth = {
     if (error) throw error
     if (!data.user) throw new Error('注册失败')
 
-    // 有 session（email confirmation 关闭）：确保 profile 已创建后登出，等待管理员审批
-    if (data.session) {
-      // 等待数据库 trigger 创建 profile，带重试
-      const delays = [500, 1000, 1500, 2000, 2500]
-      for (let i = 0; i < delays.length; i++) {
-        await new Promise(r => setTimeout(r, delays[i]))
-        const profile = await auth.getCurrentProfile()
-        if (profile) break
+    // 确保 profile 已创建（有 session 时），然后登出不自动登录
+    try {
+      if (data.session) {
+        // 等待数据库 trigger 创建 profile
+        const delays = [500, 1000, 1500, 2000, 2500]
+        for (let i = 0; i < delays.length; i++) {
+          await new Promise(r => setTimeout(r, delays[i]))
+          const profile = await auth.getCurrentProfile()
+          if (profile) break
+        }
+        // trigger 未生效时手动创建 profile（已存在则忽略）
+        await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            username: email,
+            display_name: display_name || email.split('@')[0],
+          } as any)
+          .then(() => {}, () => {})
+        // 注册后不自动登录，等待管理员审批
+        await supabase.auth.signOut()
       }
-      // trigger 未生效时手动创建 profile（已存在则忽略）
-      await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          username: email,
-          display_name: display_name || email.split('@')[0],
-        } as any)
-        .then(() => {}, () => {})
-      // 注册后不自动登录，等待管理员审批通过
-      await supabase.auth.signOut()
+    } catch {
+      // 内部流程失败不影响注册成功提示
     }
 
-    // email confirmation 开启（无 session）或已登出：返回 null，注册页显示"已提交审核"
+    // 返回 null，注册页显示"已提交审核"
     return { user: null }
   },
 
