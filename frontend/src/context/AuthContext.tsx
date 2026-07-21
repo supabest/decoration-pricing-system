@@ -30,6 +30,7 @@ function syncTokenForTool() {
       localStorage.setItem('sb-user', JSON.stringify({
         id: session.user.id,
         email: session.user.email,
+        display_name: session.user.user_metadata?.display_name || '',
       }))
     }
   } catch { /* silently ignore */ }

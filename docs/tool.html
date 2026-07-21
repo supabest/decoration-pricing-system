@@ -528,7 +528,7 @@ const _post=async(t,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(S
 const _patch=async(t,id,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify(b)})};
 const _del=async(t,id)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'DELETE',headers:h})};
 const CURRENT_USER = JSON.parse(localStorage.getItem('sb-user')||'null');
-document.addEventListener('DOMContentLoaded', function() { var el = document.getElementById('userNameDisplay'); if(el && CURRENT_USER) el.textContent = CURRENT_USER.email || CURRENT_USER.id || ''; });
+document.addEventListener('DOMContentLoaded', function() { var el = document.getElementById('userNameDisplay'); if(el && CURRENT_USER) el.textContent = CURRENT_USER.display_name || CURRENT_USER.email || CURRENT_USER.id || ''; });
 let AI_KNOWLEDGE = {tips:[],synonyms:[],rules:[]};
 // ═══════════ BENCHMARK DATA ═══════════
 let DB_EMBEDDED = {"泥水班组":[{"id":"NS-01","name":"地面-水泥砂浆找平","unit":"m2","price":20.0},{"id":"NS-08","name":"地面铺设-瓷砖地面铺贴","unit":"m2","price":50.0}],"木工班组":[{"id":"YQ-01","name":"地面基层-木地板龙骨及基层","unit":"m2","price":21.5}],"油漆班组":[{"id":"YQ-01","name":"墙面-艺术漆墙面","unit":"m2","price":43.7}]};
@@ -1417,7 +1417,7 @@ async function submitFeedback() {
 
   await _post('feedback', {
     user_id: CURRENT_USER.id,
-    user_name: CURRENT_USER.email || CURRENT_USER.id,
+    user_name: CURRENT_USER.display_name || CURRENT_USER.email || CURRENT_USER.id,
     fb_type: type, fb_ref: ref, fb_desc: desc,
     proj_name: document.getElementById('projName').value || '',
   });
