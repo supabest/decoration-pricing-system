@@ -136,6 +136,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
 .qty-i{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:5px;
   padding:4px 6px;color:var(--tx);font-size:12px;font-family:var(--mono);text-align:right;outline:none;transition:all .15s}
 .qty-i:focus{border-color:var(--acc);box-shadow:0 0 0 2px rgba(29,111,165,.12)}
+/* 隐藏 number 上下箭头 */
+.qty-i::-webkit-inner-spin-button,.qty-i::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.qty-i[type=number]{-moz-appearance:textfield}
 .r-price{font-family:var(--mono);font-size:12px;color:var(--tx2);text-align:right}
 .r-total{font-family:var(--mono);font-size:12px;color:var(--tx);font-weight:700;text-align:right}
 .sub-badge{display:inline-flex;align-items:center;gap:3px;background:var(--acc-d);
@@ -1225,7 +1228,7 @@ function renderBoq() {
               '</div></div></div></td>' +
           '<td><input class="ri ri-sm" value="'+esc(r.spec)+'" placeholder="项目特征" onchange="updField('+r.id+',\'spec\',this.value)"></td>' +
           '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
-          '<td class="r"><input class="qty-i" type="number" min="0" step="any" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
+          '<td class="r"><input class="qty-i" type="text" inputmode="decimal" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
           '<td class="r-price r">'+fmt(up)+'</td>' +
           '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
           '<td class="r"><div style="display:flex;align-items:center;gap:2px"><input class="cof-i" style="width:48px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"><button class="btn btn-ghost btn-sm" style="padding:0 3px;font-size:10px" onclick="event.stopPropagation();openMainMatPanel('+r.id+')" title="从主材库选价">📦</button></div></td>' +
