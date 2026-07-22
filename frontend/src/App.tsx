@@ -127,7 +127,13 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/approval" element={<ApprovalPage />} />
+      <Route path="/approval" element={
+        <AdminRoute>
+          <AppLayout>
+            <ApprovalPage />
+          </AppLayout>
+        </AdminRoute>
+      } />
 
       {/* Dashboard — 登录后首页 */}
       <Route path="/dashboard" element={
