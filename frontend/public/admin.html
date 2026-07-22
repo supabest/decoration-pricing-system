@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理面板 - 装修成本分析系统</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -71,6 +72,35 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
 .modal-box textarea:focus{border-color:#1d6fa5;outline:none}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 
+/* ── 基准价管理 ── */
+.bm-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.bm-upload-zone{border:2px dashed #c8d8e8;border-radius:10px;padding:40px;text-align:center;background:#f7fafd;cursor:pointer;transition:all .15s;margin-bottom:16px}
+.bm-upload-zone:hover{border-color:#1d6fa5;background:#eef4fa}
+.bm-upload-zone.dragover{border-color:#1d6fa5;background:#d4edfa}
+.bm-upload-zone .icon{font-size:40px;margin-bottom:8px}
+.bm-upload-zone .hint{font-size:13px;color:#888}
+.bm-upload-zone .hint strong{color:#1a2d3d}
+.bm-stat{font-size:12px;color:#888;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap}
+.bm-stat span{display:inline-flex;align-items:center;gap:4px}
+.bm-stat .num{font-weight:700;font-size:14px}
+.bm-stat .num.new{color:#1d6fa5}
+.bm-stat .num.upd{color:#b07000}
+.bm-stat .num.err{color:#cf1322}
+.bm-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e8e8e8;font-size:12px}
+.bm-table th{background:#fafbfc;padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:#888;border-bottom:1px solid #e8e8e8;white-space:nowrap}
+.bm-table td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.bm-table tr:last-child td{border-bottom:none}
+.bm-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.bm-table .badge-new{background:#e6f7ff;color:#1d6fa5;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.bm-table .badge-upd{background:#fffbe6;color:#b07000;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.bm-table .badge-err{background:#fff2f0;color:#cf1322;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.bm-table .match-tag{font-size:10px;color:#888;display:inline-block}
+.bm-search{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.bm-search input{padding:6px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;font-family:inherit;flex:1;min-width:150px}
+.bm-search input:focus{border-color:#1d6fa5;outline:none;box-shadow:0 0 0 2px rgba(29,111,165,.12)}
+.bm-search select{padding:6px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;font-family:inherit;background:#fff}
+.bm-wrap{overflow-x:auto;max-height:500px;overflow-y:auto;border:1px solid #e8e8e8;border-radius:8px}
+
 /* Status bar */
 .status-bar{font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:6px}
 .status-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
@@ -99,6 +129,7 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
     <button class="tab-btn active" data-tab="users" onclick="switchTab('users')">👥 用户管理</button>
     <button class="tab-btn" data-tab="prices" onclick="switchTab('prices')">💰 信息价录入</button>
     <button class="tab-btn" data-tab="knowledge" onclick="switchTab('knowledge')">🧠 知识库</button>
+    <button class="tab-btn" data-tab="benchmark" onclick="switchTab('benchmark')">📊 基准价管理</button>
   </div>
 
   <!-- ═══════════ Tab 1: 用户管理 ═══════════ -->
@@ -167,6 +198,77 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
       <div id="knowledgeItems"></div>
     </div>
   </div>
+
+  <!-- ═══════════ Tab 4: 基准价管理 ═══════════ -->
+  <div id="tab-benchmark" class="tab-content hidden">
+    <div id="bmMsg" style="display:none;padding:8px 14px;border-radius:6px;margin-bottom:10px;font-size:13px"></div>
+
+    <!-- Section 1: 批量导入 -->
+    <div class="section">
+      <h3>📥 批量导入基准价</h3>
+
+      <!-- 上传区 -->
+      <div id="bmUploadZone" class="bm-upload-zone" onclick="document.getElementById('bmFileInput').click()">
+        <div class="icon">📂</div>
+        <div class="hint">点击选择 <strong>Excel 文件</strong>（.xlsx / .xls）或将文件拖放到此处</div>
+        <div style="font-size:11px;color:#aaa;margin-top:6px">支持任意列名，系统自动匹配</div>
+        <input type="file" id="bmFileInput" accept=".xlsx,.xls" multiple style="display:none" onchange="handleBmFiles(this.files)">
+      </div>
+
+      <!-- 解析结果统计 -->
+      <div id="bmStat" class="bm-stat hidden"></div>
+
+      <!-- 预览表格 -->
+      <div id="bmPreview" style="overflow-x:auto;max-height:450px;overflow-y:auto;border:1px solid #e8e8e8;border-radius:8px;display:none">
+        <table class="bm-table" id="bmPreviewTable">
+          <thead><tr id="bmPreviewHead"></tr></thead>
+          <tbody id="bmPreviewBody"></tbody>
+        </table>
+      </div>
+
+      <!-- 确认导入按钮 -->
+      <div id="bmActions" class="hidden" style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
+        <span id="bmActionHint" style="font-size:12px;color:#888;flex:1"></span>
+        <button class="btn" onclick="clearBmImport()">🗑 清空</button>
+        <button class="btn btn-pri" id="bmConfirmBtn" onclick="confirmBmImport()">✅ 确认导入到 Supabase</button>
+      </div>
+    </div>
+
+    <!-- Section 2: 全部基准价 -->
+    <div class="section">
+      <h3>📖 全部基准价</h3>
+      <div class="bm-search">
+        <input type="text" id="bmSearchInput" placeholder="搜索项目名称、编号、班组..." oninput="renderBmBrowse()">
+        <select id="bmTeamFilter" onchange="renderBmBrowse()">
+          <option value="">全部班组</option>
+        </select>
+        <span style="flex:1"></span>
+        <span id="bmBrowseCount" style="font-size:12px;color:#888;align-self:center"></span>
+        <button class="btn btn-sm" onclick="refreshBmData()">🔄 刷新</button>
+      </div>
+      <div class="bm-wrap" id="bmBrowseWrap">
+        <table class="bm-table">
+          <thead>
+            <tr>
+              <th style="width:36px">#</th>
+              <th style="width:80px">编号</th>
+              <th style="width:70px">班组</th>
+              <th style="width:60px">工种</th>
+              <th>项目名称</th>
+              <th style="width:100px">项目特征</th>
+              <th style="width:40px">单位</th>
+              <th style="width:70px" class="num">人工单价</th>
+              <th style="width:60px" class="num">辅材费</th>
+              <th style="width:60px" class="num">主材费</th>
+            </tr>
+          </thead>
+          <tbody id="bmBrowseBody">
+            <tr><td colspan="10" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Excel 粘贴弹窗 -->
@@ -205,6 +307,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('hidden', c.id !== 'tab-' + tab));
   if (tab === 'prices') initPriceEntry();
   if (tab === 'knowledge') loadKnowledge();
+  if (tab === 'benchmark') initBenchmarkTab();
 }
 
 // ═══════════ 用户管理 Tab（原 load 逻辑） ═══════════
@@ -628,7 +731,419 @@ async function delKnowledge(id) {
   loadKnowledge();
 }
 
-// ═══════════ 初始化 ═══════════
+// ═══════════ 基准价管理 Tab ═══════════
+let bmData = [];          // 已有基准价数据（从 Supabase 拉取）
+let bmParsed = [];        // 已解析的导入数据 [{row, status, matchId, ...}]
+let bmTeamList = [];      // 班组列表
+
+function bmMsg(text, isErr) {
+  const el = document.getElementById('bmMsg');
+  if (!text) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.background = isErr ? '#fff2f0' : '#f6ffed';
+  el.style.border = '1px solid ' + (isErr ? '#ffccc7' : '#b7eb8f');
+  el.style.color = isErr ? '#cf1322' : '#389e0d';
+  el.textContent = text;
+}
+
+/** 中文字段名 → 数据库列名映射 */
+const BM_COL_MAP = {
+  'internal_code':'internal_code','编号':'internal_code','编码':'internal_code','定额编号':'internal_code',
+  'trade_team':'trade_team','班组':'trade_team','工种班组':'trade_team','施工班组':'trade_team',
+  'work_type':'work_type','工种':'work_type',
+  'item_name':'item_name','项目名称':'item_name','名称':'item_name','定额名称':'item_name','项目':'item_name',
+  'spec':'spec','项目特征':'spec','规格':'spec','特征':'spec','规格型号':'spec','型号':'spec',
+  'unit':'unit','单位':'unit','计量单位':'unit',
+  'unit_price':'unit_price','人工单价':'unit_price','单价':'unit_price','人工费':'unit_price','价格':'unit_price',
+  'auxiliary_price':'auxiliary_price','辅材费':'auxiliary_price','辅材':'auxiliary_price','辅助材料费':'auxiliary_price',
+  'material_price':'material_price','主材费':'material_price','主材':'material_price',
+  'material_loss_rate':'material_loss_rate','损耗率':'material_loss_rate','损耗':'material_loss_rate',
+  'remark':'remark','备注':'remark',
+  'aux_rule_type':'aux_rule_type','辅材类型':'aux_rule_type','规则类型':'aux_rule_type',
+  'aux_fixed_k':'aux_fixed_k','固定K值':'aux_fixed_k','K值':'aux_fixed_k','固定辅材':'aux_fixed_k',
+  'aux_rate_detail':'aux_rate_detail','配方':'aux_rate_detail','配方JSON':'aux_rate_detail',
+};
+
+/** 必填字段 */
+const BM_REQUIRED = ['trade_team','item_name','unit','unit_price'];
+
+/** 初始化 Tab */
+async function initBenchmarkTab() {
+  if (bmData.length === 0) await refreshBmData();
+  renderBmBrowse();
+}
+
+/** 从 Supabase 加载全部基准价 */
+async function refreshBmData() {
+  document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>';
+  const h = authHeaders();
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?select=*&order=trade_team.asc',{headers:h});
+    if (!r.ok) throw new Error(await r.text());
+    bmData = await r.json();
+    // 提取班组列表
+    const teams = new Set();
+    bmData.forEach(d => { if (d.trade_team) teams.add(d.trade_team); });
+    bmTeamList = [...teams].sort((a,b) => a.localeCompare(b,'zh'));
+    const sel = document.getElementById('bmTeamFilter');
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">全部班组</option>' + bmTeamList.map(t => '<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');
+    if (curVal) sel.value = curVal;
+    renderBmBrowse();
+  } catch(e) {
+    document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:#cf1322;padding:40px">❌ 加载失败：'+esc(e.message.substring(0,60))+'</td></tr>';
+  }
+}
+
+/** 渲染基准价浏览表 */
+function renderBmBrowse() {
+  const keyword = (document.getElementById('bmSearchInput').value||'').trim().toLowerCase();
+  const teamFilter = document.getElementById('bmTeamFilter').value;
+  let list = bmData;
+  if (keyword) {
+    list = list.filter(d =>
+      (d.item_name||'').toLowerCase().includes(keyword) ||
+      (d.internal_code||'').toLowerCase().includes(keyword) ||
+      (d.trade_team||'').toLowerCase().includes(keyword) ||
+      (d.work_type||'').toLowerCase().includes(keyword)
+    );
+  }
+  if (teamFilter) list = list.filter(d => d.trade_team === teamFilter);
+
+  document.getElementById('bmBrowseCount').textContent = '共 ' + list.length + ' 条';
+  const tbody = document.getElementById('bmBrowseBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">暂无数据</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((d,i) =>
+    '<tr>' +
+    '<td style="color:#aaa;font-size:11px">'+(i+1)+'</td>' +
+    '<td style="font-size:11px;color:#888">'+esc(d.internal_code||'')+'</td>' +
+    '<td>'+esc(d.trade_team)+'</td>' +
+    '<td style="font-size:11px">'+esc(d.work_type||'')+'</td>' +
+    '<td><span title="'+esc(d.spec||'')+'">'+esc(d.item_name)+'</span></td>' +
+    '<td style="font-size:11px;color:#888;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.spec||'')+'">'+esc((d.spec||'').substring(0,30))+'</td>' +
+    '<td>'+esc(d.unit)+'</td>' +
+    '<td class="num">'+(d.unit_price?parseFloat(d.unit_price).toFixed(2):'—')+'</td>' +
+    '<td class="num" style="color:#888;font-size:11px">'+(d.auxiliary_price?parseFloat(d.auxiliary_price).toFixed(2):'—')+'</td>' +
+    '<td class="num" style="color:#888;font-size:11px">'+(d.material_price?parseFloat(d.material_price).toFixed(2):'—')+'</td>' +
+    '</tr>'
+  ).join('');
+}
+
+// ═══════════ Excel 文件处理 ═══════════
+
+/** 上传区拖放支持 */
+document.addEventListener('DOMContentLoaded', function() {
+  const zone = document.getElementById('bmUploadZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });
+  zone.addEventListener('dragleave', function() { this.classList.remove('dragover'); });
+  zone.addEventListener('drop', function(e) {
+    e.preventDefault(); this.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleBmFiles(e.dataTransfer.files);
+  });
+});
+
+/** 处理上传的 Excel 文件 */
+function handleBmFiles(files) {
+  if (!files || !files.length) return;
+  // 支持上传多个文件，逐个解析
+  bmParsed = [];
+  let remaining = files.length;
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi];
+    if (!file.name.match(/\.xlsx?$/i)) { bmMsg('❌ 不支持的文件格式：'+file.name, true); continue; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        parseBmWorkbook(wb, file.name);
+      } catch(err) { bmMsg('❌ 解析失败('+file.name+')：'+err.message, true); }
+      remaining--;
+      if (remaining === 0) buildBmPreview();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+/** 解析单个 workbook */
+function parseBmWorkbook(wb, fileName) {
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) { bmMsg('❌ 文件没有工作表：'+fileName, true); return; }
+  const raw = XLSX.utils.sheet_to_json(sheet, {defval:''});
+  if (!raw || !raw.length) { bmMsg('❌ 文件无数据行：'+fileName, true); return; }
+
+  // 提取表头并映射到数据库列
+  const headers = Object.keys(raw[0]);
+  const colMap = {}; // dbField -> excelCol
+  headers.forEach(h => {
+    const clean = h.trim().replace(/\s+/g,'');
+    const mapped = BM_COL_MAP[clean] || BM_COL_MAP[h.trim()];
+    if (mapped) colMap[mapped] = h;
+  });
+
+  // 检查必填列
+  const missing = BM_REQUIRED.filter(f => !colMap[f]);
+  if (missing.length) {
+    bmMsg('⚠️ 缺少必填列：' + missing.map(f => BM_COL_MAP[f]||f).join('、') + '，请检查表头', true);
+    return;
+  }
+
+  // 解析每行数据
+  let parsedCount = 0;
+  raw.forEach((row, idx) => {
+    const item = {};
+    let hasAny = false;
+    for (const [field, excelCol] of Object.entries(colMap)) {
+      let val = (row[excelCol] || '').toString().trim();
+      if (val === '') continue;
+
+      // 数值字段
+      if (['unit_price','auxiliary_price','material_price','material_loss_rate','aux_fixed_k'].includes(field)) {
+        const num = parseFloat(val.replace(/[^0-9.\-]/g,''));
+        if (!isNaN(num) && num !== 0) { item[field] = num; hasAny = true; }
+      } else {
+        item[field] = val;
+        hasAny = true;
+      }
+    }
+    if (hasAny) {
+      item._rowNum = idx + 2; // Excel 行号（含表头）
+      item._fileName = fileName;
+      // 格式化数值
+      BM_REQUIRED.forEach(f => { if (!item[f] || item[f] === '') item[f] = null; });
+      bmParsed.push(item);
+      parsedCount++;
+    }
+  });
+
+  bmMsg('✅ 解析完成：' + parsedCount + ' 条数据（来自 ' + fileName + '）', false);
+}
+
+/** 构建预览：与已有数据匹配，标记新增/更新 */
+function buildBmPreview() {
+  if (!bmParsed.length) return;
+
+  // 建立索引用于匹配
+  const idxByCode = {};  // internal_code -> item
+  const idxByNameTeam = {}; // item_name|trade_team -> item
+  bmData.forEach(d => {
+    if (d.internal_code) idxByCode[d.internal_code] = d;
+    if (d.item_name && d.trade_team) idxByNameTeam[d.item_name+'|'+d.trade_team] = d;
+  });
+
+  // 统计
+  let newCount = 0, updCount = 0, skipCount = 0;
+
+  // 用于分配新编号
+  let maxCode = 0;
+  bmData.forEach(d => {
+    if (d.internal_code) {
+      const m = d.internal_code.match(/NS[-]?(\d+)/i);
+      if (m) maxCode = Math.max(maxCode, parseInt(m[1]));
+    }
+  });
+
+  bmParsed.forEach(p => {
+    const key = (p.item_name||'')+'|'+(p.trade_team||'');
+    let matched = null;
+    let matchType = '';
+
+    // 优先按 internal_code 匹配
+    if (p.internal_code && idxByCode[p.internal_code]) {
+      matched = idxByCode[p.internal_code];
+      matchType = '编码匹配';
+    }
+    // 其次按 名称+班组 匹配
+    if (!matched && idxByNameTeam[key]) {
+      matched = idxByNameTeam[key];
+      matchType = '名称+班组匹配';
+      // 沿用库内的编号
+      p.internal_code = matched.internal_code;
+    }
+
+    if (matched) {
+      p._status = 'update';
+      p._matchId = matched.id;
+      p._matchType = matchType;
+      p._oldPrice = matched.unit_price;
+      p._oldCode = matched.internal_code;
+      updCount++;
+    } else {
+      // 分配新编号
+      maxCode++;
+      p._status = 'new';
+      p._newCode = 'NS-' + String(maxCode).padStart(3,'0');
+      p._matchType = p.internal_code ? '新编号' : '自动编号';
+      newCount++;
+    }
+  });
+
+  renderBmPreview(newCount, updCount, skipCount);
+}
+
+/** 渲染预览表格 */
+function renderBmPreview(newCount, updCount, skipCount) {
+  const statEl = document.getElementById('bmStat');
+  statEl.classList.remove('hidden');
+  statEl.innerHTML =
+    '<span>共解析 <span class="num">' + bmParsed.length + '</span> 条</span>' +
+    '<span>🆕 新增 <span class="num new">' + newCount + '</span> 条</span>' +
+    '<span>🔄 更新 <span class="num upd">' + updCount + '</span> 条</span>' +
+    (skipCount ? '<span>⚠️ 跳过 <span class="num err">' + skipCount + '</span> 条</span>' : '');
+
+  // 预览表格头
+  const headRow = document.getElementById('bmPreviewHead');
+  headRow.innerHTML =
+    '<th style="width:30px">#</th>' +
+    '<th style="width:50px">状态</th>' +
+    '<th style="width:80px">编号</th>' +
+    '<th style="width:60px">班组</th>' +
+    '<th>项目名称</th>' +
+    '<th style="width:60px">单位</th>' +
+    '<th style="width:70px" class="num">人工单价</th>' +
+    '<th style="width:60px" class="num">辅材费</th>' +
+    '<th style="width:60px" class="num">主材费</th>' +
+    '<th style="width:80px">匹配方式</th>';
+
+  const tbody = document.getElementById('bmPreviewBody');
+  tbody.innerHTML = bmParsed.map((p, i) => {
+    const isNew = p._status === 'new';
+    const isUpd = p._status === 'update';
+    const isErr = !p.trade_team || !p.item_name || !p.unit || (p.unit_price === null || p.unit_price === undefined);
+    const statusClass = isNew ? 'badge-new' : isUpd ? 'badge-upd' : 'badge-err';
+    const statusText = isNew ? '🆕新增' : isUpd ? '🔄更新' : '⚠️错误';
+
+    const code = isNew ? (p._newCode||'') : (p.internal_code||p._oldCode||'');
+    const codeClass = isNew ? 'style="color:#1d6fa5;font-weight:600"' : '';
+
+    const price = p.unit_price !== null && p.unit_price !== undefined ? p.unit_price : '';
+    const aux = p.auxiliary_price !== null && p.auxiliary_price !== undefined ? p.auxiliary_price : '';
+    const mat = p.material_price !== null && p.material_price !== undefined ? p.material_price : '';
+
+    let matchLabel = p._matchType || '';
+    if (isUpd) matchLabel += ' <span style="color:#888;font-size:10px">(原价:'+(p._oldPrice?parseFloat(p._oldPrice).toFixed(2):'—')+')</span>';
+
+    return '<tr'+(isErr?' style="background:#fff2f0"':'')+'>' +
+      '<td style="color:#aaa;font-size:11px">'+p._rowNum+'</td>' +
+      '<td><span class="'+statusClass+'">'+statusText+'</span></td>' +
+      '<td '+(codeClass||'style="color:#888"')+'>'+esc(code)+'</td>' +
+      '<td>'+esc(p.trade_team||'<span style="color:#cf1322">缺</span>')+'</td>' +
+      '<td><span title="'+esc(p.spec||'')+'">'+esc(p.item_name||'<span style="color:#cf1322">缺</span>')+'</span></td>' +
+      '<td>'+esc(p.unit||'<span style="color:#cf1322">缺</span>')+'</td>' +
+      '<td class="num">'+(p.unit_price !== null && p.unit_price !== undefined ? (typeof p.unit_price==='number'?p.unit_price.toFixed(2):p.unit_price) : '<span style="color:#cf1322">缺</span>')+'</td>' +
+      '<td class="num" style="color:#888;font-size:11px">'+(aux!==''?(typeof aux==='number'?aux.toFixed(2):aux):'—')+'</td>' +
+      '<td class="num" style="color:#888;font-size:11px">'+(mat!==''?(typeof mat==='number'?mat.toFixed(2):mat):'—')+'</td>' +
+      '<td><span class="match-tag">'+matchLabel+'</span></td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('bmPreview').style.display = '';
+  document.getElementById('bmActions').classList.remove('hidden');
+  const hasError = bmParsed.some(p => !p.trade_team || !p.item_name || !p.unit || p.unit_price === null || p.unit_price === undefined);
+  document.getElementById('bmConfirmBtn').disabled = hasError;
+  document.getElementById('bmConfirmBtn').style.opacity = hasError ? '0.5' : '1';
+  document.getElementById('bmActionHint').textContent = hasError ? '⚠️ 存在缺项，请修正 Excel 后重新上传' : (newCount + ' 条新增 + ' + updCount + ' 条更新');
+}
+
+/** 清空导入结果 */
+function clearBmImport() {
+  bmParsed = [];
+  document.getElementById('bmPreview').style.display = 'none';
+  document.getElementById('bmActions').classList.add('hidden');
+  document.getElementById('bmStat').classList.add('hidden');
+  bmMsg('');
+}
+
+/** 确认导入到 Supabase */
+async function confirmBmImport() {
+  if (!bmParsed.length) { bmMsg('⚠️ 没有可导入的数据', true); return; }
+  const hasError = bmParsed.some(p => !p.trade_team || !p.item_name || !p.unit || p.unit_price === null || p.unit_price === undefined);
+  if (hasError) { bmMsg('❌ 存在缺项，请修正后重试', true); return; }
+
+  const btn = document.getElementById('bmConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 导入中...';
+  bmMsg('');
+
+  const h = {...authHeaders(), 'Prefer': 'return=minimal'};
+  let success = 0, fail = 0, errors = [];
+
+  for (let i = 0; i < bmParsed.length; i++) {
+    const p = bmParsed[i];
+    try {
+      if (p._status === 'update' && p._matchId) {
+        // 更新已有记录
+        const body = {};
+        if (p.trade_team !== undefined) body.trade_team = p.trade_team;
+        if (p.work_type !== undefined) body.work_type = p.work_type;
+        if (p.item_name !== undefined) body.item_name = p.item_name;
+        if (p.spec !== undefined) body.spec = p.spec;
+        if (p.unit !== undefined) body.unit = p.unit;
+        if (p.unit_price !== undefined) body.unit_price = p.unit_price;
+        if (p.auxiliary_price !== undefined) body.auxiliary_price = p.auxiliary_price;
+        if (p.material_price !== undefined) body.material_price = p.material_price;
+        if (p.material_loss_rate !== undefined) body.material_loss_rate = p.material_loss_rate;
+        if (p.remark !== undefined) body.remark = p.remark;
+        if (p.aux_rule_type !== undefined) body.aux_rule_type = p.aux_rule_type;
+        if (p.aux_fixed_k !== undefined) body.aux_fixed_k = p.aux_fixed_k;
+        if (p.aux_rate_detail !== undefined) body.aux_rate_detail = p.aux_rate_detail;
+        const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?id=eq.'+p._matchId, {
+          method: 'PATCH', headers: {...h,'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,60)); }
+        success++;
+      } else {
+        // 新增记录
+        const row = {
+          trade_team: p.trade_team,
+          item_name: p.item_name,
+          unit: p.unit,
+          unit_price: p.unit_price,
+          internal_code: p._newCode || p.internal_code || null,
+          work_type: p.work_type || null,
+          spec: p.spec || null,
+          auxiliary_price: p.auxiliary_price || null,
+          material_price: p.material_price || null,
+          material_loss_rate: p.material_loss_rate || null,
+          remark: p.remark || null,
+          aux_rule_type: p.aux_rule_type || null,
+          aux_fixed_k: p.aux_fixed_k || null,
+          aux_rate_detail: p.aux_rate_detail || null,
+        };
+        // 清理 undefined
+        Object.keys(row).forEach(k => { if (row[k] === undefined) row[k] = null; });
+        const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items', {
+          method: 'POST', headers: {...h,'Content-Type':'application/json'}, body: JSON.stringify(row)
+        });
+        if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,60)); }
+        success++;
+      }
+    } catch(err) {
+      fail++;
+      errors.push('第' + p._rowNum + '行：' + err.message);
+    }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✅ 确认导入到 Supabase';
+
+  let msg = '✅ 导入完成：成功 ' + success + ' 条';
+  if (fail > 0) msg += '，失败 ' + fail + ' 条';
+  bmMsg(msg, fail > success);
+  if (errors.length) {
+    const detail = document.createElement('div');
+    detail.style.marginTop = '8px'; detail.style.fontSize = '12px';
+    detail.innerHTML = errors.map(e => '<div>⚠️ ' + esc(e) + '</div>').join('');
+    document.getElementById('bmMsg').appendChild(detail);
+  }
+
+  // 清空导入状态并刷新数据
+  clearBmImport();
+  await refreshBmData();
+}
 async function load() {
   const token = localStorage.getItem('sb-access-token');
   if (!token) {
