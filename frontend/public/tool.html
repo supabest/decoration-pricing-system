@@ -118,8 +118,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px
 .boq-table th{padding:9px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--tx2);
   text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);white-space:nowrap;background:var(--bg3)}
 .boq-table th.r,.boq-table td.r{text-align:right}.boq-table th.c,.boq-table td.c{text-align:center}
-.c-no{width:40px}.c-nm{min-width:140px}.c-sp{width:170px}
-.c-un{width:48px}.c-qty{width:80px}.c-pr{width:86px}.c-tot{width:98px}.c-re{width:100px}.c-ac{width:48px}.c-mat{width:60px}.c-waste{width:50px}.c-aux{width:60px}.c-mat{width:60px}.c-waste{width:50px}.c-aux{width:60px}.c-mgmt{width:48px}.c-prof{width:48px}.c-usp{width:86px}
+.c-no{width:40px}.c-nm{min-width:160px}.c-sp{width:160px}
+.c-un{width:48px}.c-qty{width:72px}.c-pr{width:80px}.c-total{width:88px}.c-re{width:90px}.c-ac{width:48px}.c-mat{width:56px}.c-waste{width:46px}.c-aux{width:56px}.c-mgmt{width:46px}.c-profit{width:46px}.c-usp{width:80px}
 .pr{border-bottom:1px solid var(--border);transition:background .08s;background:var(--bg2)}
 .pr:hover{background:var(--bg4)}.pr.drop-hi td{background:rgba(29,111,165,.08)!important}
 .pr td{padding:8px 10px;vertical-align:middle}
@@ -1227,8 +1227,9 @@ function renderBoq() {
           '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
           '<td class="r"><input class="qty-i" type="number" min="0" step="any" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
           '<td class="r-price r">'+fmt(up)+'</td>' +
-          '<td class="r"><div style="display:flex;align-items:center;gap:2px"><input class="cof-i" style="width:52px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"><button class="btn btn-ghost btn-sm" style="padding:0 3px;font-size:10px" onclick="event.stopPropagation();openMainMatPanel('+r.id+')" title="从主材库选价">📦</button></div></td>' +
-          '<td class="r"><input class="cof-i" style="width:42px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
+          '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
+          '<td class="r"><div style="display:flex;align-items:center;gap:2px"><input class="cof-i" style="width:48px" type="number" min="0" step="any" value="'+r.matPrice+'" placeholder="0" title="主材单价" onchange="updField('+r.id+',\'matPrice\',this.value)"><button class="btn btn-ghost btn-sm" style="padding:0 3px;font-size:10px" onclick="event.stopPropagation();openMainMatPanel('+r.id+')" title="从主材库选价">📦</button></div></td>' +
+          '<td class="r"><input class="cof-i" style="width:40px" type="number" min="0" step="0.5" value="'+r.wasteRate+'" title="损耗率%" onchange="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
           '<td class="r">'+fmt((up||0)*(globalMgmtRate/100))+'</td>' +
           '<td class="r">'+fmt((up||0)*(globalProfitRate/100))+'</td>' +
           '<td class="r-total r">'+fmt(compUnitPrice(r))+'</td>' +
@@ -1669,6 +1670,8 @@ const EXP_COLS = [
   {key:'mat',  label:'主材费',     get:r=>parseFloat(r.matPrice)||0, num:true, wide:10, def:false, preset:{client:false,internal:true, labor:false}},
   {key:'waste',label:'损耗率',     get:r=>parseFloat(r.wasteRate)||0, num:true, wide:8,  def:false, preset:{client:false,internal:true, labor:false}},
   {key:'aux',  label:'辅材费',     get:r=>parseFloat(r.auxCost)||0,   num:true, wide:10, def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'mgmt', label:'管理费',     get:r=>(rowUnitPrice(r)||0)*(globalMgmtRate/100), num:true, wide:8, def:false, preset:{client:false,internal:true, labor:false}},
+  {key:'profit',label:'利润',      get:r=>(rowUnitPrice(r)||0)*(globalProfitRate/100), num:true, wide:8, def:false, preset:{client:false,internal:true, labor:false}},
   {key:'usp',  label:'综合单价',    get:r=>compUnitPrice(r)||0,   num:true, wide:12, def:true,  preset:{client:true, internal:true, labor:false}},
   {key:'total',label:'合价',       get:r=>rowTotal(r)||0,        num:true, wide:14, def:true,  preset:{client:true, internal:true, labor:true}},
   {key:'remark',label:'备注',      get:r=>r.remark||'',         num:false, wide:22, def:true,  preset:{client:false,internal:true, labor:false}},
