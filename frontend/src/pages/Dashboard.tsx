@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { supabase as _sb } from '../lib/supabaseClient'
+const supabase = _sb as any
 
 interface QuickAction {
   emoji: string
@@ -17,6 +18,10 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [counts, setCounts] = useState({ benchmark: 0, auxRules: 0, matPrices: 0, projects: 0 })
   const [loading, setLoading] = useState(true)
+  const [editingName, setEditingName] = useState(false)
+  const [nickname, setNickname] = useState(user?.display_name || '')
+  const [saving, setSaving] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function loadCounts() {
@@ -38,6 +43,22 @@ export default function Dashboard() {
     }
     loadCounts()
   }, [user?.id])
+
+  useEffect(() => {
+    if (editingName && inputRef.current) inputRef.current.focus()
+  }, [editingName])
+
+  const saveNickname = async () => {
+    if (!user) return
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('profiles').update({ display_name: nickname || null }).eq('id', user.id)
+      if (error) throw error
+      user.display_name = nickname
+      setEditingName(false)
+    } catch { /* let user retry */ }
+    finally { setSaving(false) }
+  }
 
   const quickActions: QuickAction[] = [
     { emoji: '🧮', label: '套价工具', desc: '导入清单，自动匹配基准价与辅材', path: '/pricing', color: '#0f3460' },
@@ -61,9 +82,48 @@ export default function Dashboard() {
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
       {/* Welcome */}
       <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a2e', margin: '0 0 4px' }}>
-          👋 欢迎回来{user?.display_name ? `，${user.display_name}` : ''}
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1a1a2e', margin: 0 }}>
+            👋 欢迎回来{!editingName && (user?.display_name ? `，${user.display_name}` : '')}
+          </h2>
+          {editingName ? (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                ref={inputRef}
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveNickname(); if (e.key === 'Escape') { setNickname(user?.display_name || ''); setEditingName(false); } }}
+                style={{
+                  padding: '4px 10px', borderRadius: 6, border: '1px solid #1d6fa5',
+                  fontSize: 14, outline: 'none', width: 160,
+                }}
+                placeholder="输入昵称"
+              />
+              <button onClick={saveNickname} disabled={saving} style={{
+                padding: '4px 12px', borderRadius: 6, border: '1px solid #389e0d',
+                background: '#f6ffed', color: '#389e0d', fontSize: 13, cursor: 'pointer',
+              }}>
+                {saving ? '...' : '保存'}
+              </button>
+              <button onClick={() => { setNickname(user?.display_name || ''); setEditingName(false) }} style={{
+                padding: '4px 12px', borderRadius: 6, border: '1px solid #d9d9d9',
+                background: '#fff', color: '#666', fontSize: 13, cursor: 'pointer',
+              }}>
+                取消
+              </button>
+            </div>
+          ) : (
+            <span
+              onClick={() => { setNickname(user?.display_name || ''); setEditingName(true) }}
+              title="修改昵称"
+              style={{ fontSize: 18, cursor: 'pointer', opacity: 0.4, transition: '0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '0.4'}
+            >
+              ✏️
+            </span>
+          )}
+        </div>
         <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
           {user?.is_admin ? '管理员模式 — 可管理所有数据和用户' : '认证用户 — 可查询基准价与套价'}
         </p>
