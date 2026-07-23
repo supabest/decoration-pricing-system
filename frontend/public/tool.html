@@ -1835,34 +1835,53 @@ function doConfigExport() {
     });
   });
 
-  // Column widths — widen spec for readability, ensure min widths for text cols
+  // Column widths — 为文字较长的列（spec/name）加宽，确保导出不截断
   ws['!cols'] = selected.map(c => {
     let w = c.wide;
-    if (showSubs && c.key === 'spec') w = Math.max(w, 50);
-    if (showSubs && c.key === 'name') w = Math.max(w, 34);
+    if (c.key === 'spec') w = Math.max(w, showSubs ? 55 : 48);
+    if (c.key === 'name') w = Math.max(w, showSubs ? 40 : 32);
+    if (c.key === 'remark') w = Math.max(w, 28);
+    // 数字列不需要太宽
+    if (c.num) w = Math.min(w, 14);
     return {wch: w};
   });
 
-  // Outline grouping
-  ws['!rows'] = rows.map(rd => ({level: rd.level, hpt: rd.level > 0 ? 18 : 22}));
+  // Row heights — 不设固定高度让 Excel 自动撑开（hpt 为 undefined），保留分组级别
+  ws['!rows'] = rows.map(rd => {
+    const row = {level: rd.level};
+    // 标题行和表头行给较大高度
+    if (rd.level === 0 && rows.indexOf(rd) === 0) row.hpt = 30;
+    else if (rd.level === 0 && rows.indexOf(rd) === 1) row.hpt = 22;
+    // 数据行不设固定高度 → Excel 根据内容自动撑开，配合 wrapText 自动换行
+    return Object.keys(row).length ? row : undefined;
+  });
   if (groupRows) {
     ws['!outline'] = {summaryBelow: true};
   }
 
-  // Auto-wrap + alignment + NO shrink-to-fit for all cells
+  // Cell style: 自动换行 + 边框 + 对齐 + 字号
   const range = XLSX.utils.decode_range(ws['!ref']||'A1');
   for (let r = range.s.r; r <= range.e.r; r++) {
     for (let c = range.s.c; c <= range.e.c; c++) {
       const ref = XLSX.utils.encode_cell({r,c});
       if (ws[ref]) {
+        const isTitle = r === 0;
+        const isHeader = r === 1;
         ws[ref].s = {
           alignment: {
-            vertical: r === 0 ? 'center' : 'top',
-            horizontal: (c === 0 || selected[c]?.num) ? 'right' : 'left',
+            vertical: isTitle || isHeader ? 'center' : 'top',
+            horizontal: selected[c]?.num ? 'right' : 'left',
             wrapText: true,
             shrinkToFit: false,
           },
-          font: r === 0 ? {bold: true, sz: 14} : (r === 1 ? {bold: true, sz: 10} : {sz: 10}),
+          font: isTitle ? {bold: true, sz: 14} : (isHeader ? {bold: true, sz: 10} : {sz: 10}),
+          border: {
+            top: {style:'thin', color:{auto:1}},
+            bottom: {style:'thin', color:{auto:1}},
+            left: {style:'thin', color:{auto:1}},
+            right: {style:'thin', color:{auto:1}},
+          },
+          fill: isHeader ? {fgColor:{rgb:'F0F0F0'}, patternType:'solid'} : undefined,
         };
       }
     }
