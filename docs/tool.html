@@ -608,8 +608,8 @@ function toggleHourlyMode(rid) {
 
 // ═══════════ INIT ═══════════
 function init() {
-  (async () => {
-    document.getElementById('libCnt').textContent = '⏳ 连接Supabase中...'; await new Promise(r=>setTimeout(r,100));
+  return (async () => {
+    document.getElementById('libCnt').textContent = '⏳ 连接Supabase中...';
     const hasSb = await loadFromSupabase();
     if (!hasSb) {
       document.getElementById('libCnt').textContent = '⚠️ Supabase不可用，使用内置数据';
@@ -818,12 +818,14 @@ let mmSelectedUnit = '';
 
 async function loadMainMaterialCategories() {
   try {
-    // Load categories
-    const cats = await _get('main_material_categories', {order:{col:'sort_order',asc:true}, limit:50});
-    // Load materials with latest prices
-    const items = await _get('main_material_prices', {order:{col:'effective_month',asc:false}, limit:1000});
+    // ⚡ 并行加载品类、价格、目录
+    const [cats, items, catalog] = await Promise.all([
+      _get('main_material_categories', {order:{col:'sort_order',asc:true}, limit:50}),
+      _get('main_material_prices', {order:{col:'effective_month',asc:false}, limit:1000}),
+      _get('main_material_catalog', {select:'id,category_id,material_name,spec,unit', limit:1000}),
+    ]);
     if (!items || !items.length) return;
-    
+
     // Take latest price per material
     const latest = {};
     items.forEach(it => {
@@ -831,15 +833,13 @@ async function loadMainMaterialCategories() {
         latest[it.material_id] = it;
       }
     });
-    
-    // Load catalog to get names/specs
-    const catalog = await _get('main_material_catalog', {select:'id,category_id,material_name,spec,unit', limit:1000});
+
     if (!catalog) return;
-    
+
     // Build cache: join catalog + prices + categories
     const catMap = {};
     if (cats) cats.forEach(c => { catMap[c.id] = c; });
-    
+
     mainMatCache = catalog.map(m => {
       const p = latest[m.id] || {};
       const cat = catMap[m.category_id] || {};
@@ -2461,10 +2461,13 @@ function openUnmatchedModal() {
     } catch(e) {}
   }
   try {
-    await loadAuxRules();    // 旧版 keyword 规则
-    await loadMaterialPrices(); // 新版信息价库
-    await loadMainMaterialCategories(); // 主材选品库
-    init();
+    // ⚡ 所有数据请求并行加载，大幅缩短启动时间
+    await Promise.all([
+      loadAuxRules(),                // 旧版 keyword 规则
+      loadMaterialPrices(),          // 新版信息价库
+      loadMainMaterialCategories(),  // 主材选品库
+      init(),                        // 基准价 + 渲染侧栏
+    ]);
   } catch(e) { alert('启动失败: '+e.message); }
 })();
 </script>

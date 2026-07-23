@@ -372,6 +372,15 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
             <button class="btn btn-sm" onclick="expLoadPreset('labor')">人工费清单</button>
             <span style="font-size:10px;color:var(--tx3)">模板自动保存</span>
           </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;background:var(--bg3);border-radius:8px">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="expGroupFolding" checked> 📂 分部合并折叠
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="expShowSubs"> 📌 包含套价子目
+            </label>
+            <span style="font-size:10px;color:var(--tx3)">子目将折叠在所属清单项下方</span>
+          </div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
             <button class="btn btn-sm" onclick="closeExportModal()">取消</button>
             <button class="btn btn-sm btn-suc" onclick="doConfigExport()">✅ 导出 Excel</button>
@@ -599,8 +608,8 @@ function toggleHourlyMode(rid) {
 
 // ═══════════ INIT ═══════════
 function init() {
-  (async () => {
-    document.getElementById('libCnt').textContent = '⏳ 连接Supabase中...'; await new Promise(r=>setTimeout(r,100));
+  return (async () => {
+    document.getElementById('libCnt').textContent = '⏳ 连接Supabase中...';
     const hasSb = await loadFromSupabase();
     if (!hasSb) {
       document.getElementById('libCnt').textContent = '⚠️ Supabase不可用，使用内置数据';
@@ -809,12 +818,14 @@ let mmSelectedUnit = '';
 
 async function loadMainMaterialCategories() {
   try {
-    // Load categories
-    const cats = await _get('main_material_categories', {order:{col:'sort_order',asc:true}, limit:50});
-    // Load materials with latest prices
-    const items = await _get('main_material_prices', {order:{col:'effective_month',asc:false}, limit:1000});
+    // ⚡ 并行加载品类、价格、目录
+    const [cats, items, catalog] = await Promise.all([
+      _get('main_material_categories', {order:{col:'sort_order',asc:true}, limit:50}),
+      _get('main_material_prices', {order:{col:'effective_month',asc:false}, limit:1000}),
+      _get('main_material_catalog', {select:'id,category_id,material_name,spec,unit', limit:1000}),
+    ]);
     if (!items || !items.length) return;
-    
+
     // Take latest price per material
     const latest = {};
     items.forEach(it => {
@@ -822,15 +833,13 @@ async function loadMainMaterialCategories() {
         latest[it.material_id] = it;
       }
     });
-    
-    // Load catalog to get names/specs
-    const catalog = await _get('main_material_catalog', {select:'id,category_id,material_name,spec,unit', limit:1000});
+
     if (!catalog) return;
-    
+
     // Build cache: join catalog + prices + categories
     const catMap = {};
     if (cats) cats.forEach(c => { catMap[c.id] = c; });
-    
+
     mainMatCache = catalog.map(m => {
       const p = latest[m.id] || {};
       const cat = catMap[m.category_id] || {};
@@ -1731,6 +1740,9 @@ function doConfigExport() {
   const selected = EXP_COLS.filter(c => document.getElementById('expchk_'+c.key)?.checked);
   if (!selected.length) { toast('请至少勾选一列'); return; }
 
+  const groupRows = document.getElementById('expGroupFolding')?.checked !== false;
+  const showSubs = document.getElementById('expShowSubs')?.checked || false;
+
   const wb = XLSX.utils.book_new();
   const ws = {};
   let ri = 0, seq = 0;
@@ -1747,42 +1759,115 @@ function doConfigExport() {
     ws['!ref'] = XLSX.utils.encode_range(range);
   }
 
-  // Title row
-  const rowVals = selected.map(c => '');
-  rowVals[0] = proj + '  套价表'; sc(ri, 0, rowVals[0]); ri++;
-  // Header row
-  selected.forEach((c,ci) => sc(ri, ci, getExpLabel(c.key))); ri++;
+  // Build row definitions [{level, cells: [{val, num}]}]
+  const rows = [];
 
-  // Data rows
+  // Title row — level 0
+  const titleCells = selected.map(() => '');
+  titleCells[0] = proj + '  套价表';
+  rows.push({level: 0, cells: titleCells.map(v => ({val: v, num: false}))});
+
+  // Header row — level 0
+  rows.push({level: 0, cells: selected.map(c => ({val: getExpLabel(c.key), num: false}))});
+
+  // Data rows with outline levels
   groups.forEach(g => {
-    sc(ri, 0, '【'+g.sheetName+'】'); ri++;
+    // Group header — level 1
+    const grpCells = selected.map(() => '');
+    grpCells[0] = '【'+g.sheetName+'】';
+    rows.push({level: groupRows ? 1 : 0, cells: grpCells.map(v => ({val: v, num: false}))});
+
     g.sections.forEach(sec => {
-      sc(ri, 0, sec.name); ri++;
+      // Section header — level 2
+      const secCells = selected.map(() => '');
+      secCells[0] = sec.name;
+      rows.push({level: groupRows ? 2 : 0, cells: secCells.map(v => ({val: v, num: false}))});
+
       sec.rows.forEach(r => {
         seq++; r._seq = seq;
         const code = (r.subs && r.subs.length) ? (r.subs[0].bid||'') : '';
         r._code = code;
-        selected.forEach((c,ci) => {
-          const val = c.get(r);
-          sc(ri, ci, val, c.num ? '#,##0.00' : null);
-        });
-        ri++;
+
+        // Data row — level 3 (or 0 if no folding)
+        const dataCells = selected.map(c => ({val: c.get(r), num: c.num}));
+        const dataLevel = groupRows ? 3 : 0;
+        rows.push({level: dataLevel, cells: dataCells});
+
+        // Sub-item rows — level 4 (nested under parent)
+        if (showSubs && r.subs && r.subs.length) {
+          r.subs.forEach(sub => {
+            const it = getBench(sub.bid, sub.bsh);
+            if (!it) return;
+            const ep = effPrice(sub);
+            const subQty = (parseFloat(r.qty)||0) * (sub.conv||1.0) * sub.coef;
+            const subCells = selected.map(c => {
+              let val;
+              const ck = c.key;
+              if (ck === 'seq') val = '';
+              else if (ck === 'code') val = String(sub.bid||'');
+              else if (ck === 'name') val = '  └ ' + (it.name||'');
+              else if (ck === 'spec') val = it.spec||'';
+              else if (ck === 'unit') val = it.unit||'';
+              else if (ck === 'qty') val = subQty;
+              else if (ck === 'lab') val = ep;
+              else if (ck === 'mat') val = 0;
+              else if (ck === 'waste') val = parseFloat(r.wasteRate)||0;
+              else if (ck === 'aux') val = 0;
+              else if (ck === 'mgmt') val = ep * (globalMgmtRate / 100);
+              else if (ck === 'profit') val = ep * (globalProfitRate / 100);
+              else if (ck === 'usp') val = ep;
+              else if (ck === 'total') val = ep * subQty;
+              else if (ck === 'remark') val = '';
+              else val = '';
+              return {val, num: c.num};
+            });
+            rows.push({level: groupRows ? 4 : 0, cells: subCells});
+          });
+        }
       });
     });
   });
 
-  // Col widths
-  ws['!cols'] = selected.map(c => ({wch: c.wide}));
-  // Auto-wrap all cells
+  // Write all rows
+  rows.forEach((rd, i) => {
+    rd.cells.forEach((cell, j) => {
+      sc(i, j, cell.val, cell.num ? '#,##0.00' : null);
+    });
+  });
+
+  // Column widths — widen spec for readability, ensure min widths for text cols
+  ws['!cols'] = selected.map(c => {
+    let w = c.wide;
+    if (showSubs && c.key === 'spec') w = Math.max(w, 50);
+    if (showSubs && c.key === 'name') w = Math.max(w, 34);
+    return {wch: w};
+  });
+
+  // Outline grouping
+  ws['!rows'] = rows.map(rd => ({level: rd.level, hpt: rd.level > 0 ? 18 : 22}));
+  if (groupRows) {
+    ws['!outline'] = {summaryBelow: true};
+  }
+
+  // Auto-wrap + alignment + NO shrink-to-fit for all cells
   const range = XLSX.utils.decode_range(ws['!ref']||'A1');
   for (let r = range.s.r; r <= range.e.r; r++) {
     for (let c = range.s.c; c <= range.e.c; c++) {
       const ref = XLSX.utils.encode_cell({r,c});
       if (ws[ref]) {
-        ws[ref].s = { alignment: { vertical:'center', horizontal: (c===0||selected[c]?.num)?'right':'left', wrapText: true } };
+        ws[ref].s = {
+          alignment: {
+            vertical: r === 0 ? 'center' : 'top',
+            horizontal: (c === 0 || selected[c]?.num) ? 'right' : 'left',
+            wrapText: true,
+            shrinkToFit: false,
+          },
+          font: r === 0 ? {bold: true, sz: 14} : (r === 1 ? {bold: true, sz: 10} : {sz: 10}),
+        };
       }
     }
   }
+
   // Merge title row
   if (selected.length > 1) {
     ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:selected.length-1}}];
@@ -2376,10 +2461,13 @@ function openUnmatchedModal() {
     } catch(e) {}
   }
   try {
-    await loadAuxRules();    // 旧版 keyword 规则
-    await loadMaterialPrices(); // 新版信息价库
-    await loadMainMaterialCategories(); // 主材选品库
-    init();
+    // ⚡ 所有数据请求并行加载，大幅缩短启动时间
+    await Promise.all([
+      loadAuxRules(),                // 旧版 keyword 规则
+      loadMaterialPrices(),          // 新版信息价库
+      loadMainMaterialCategories(),  // 主材选品库
+      init(),                        // 基准价 + 渲染侧栏
+    ]);
   } catch(e) { alert('启动失败: '+e.message); }
 })();
 </script>
