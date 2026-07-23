@@ -1018,6 +1018,7 @@ function renderBmPreview(newCount, updCount, skipCount) {
     '<th style="width:80px">编号</th>' +
     '<th style="width:60px">班组</th>' +
     '<th>项目名称</th>' +
+    '<th style="width:120px">项目特征</th>' +
     '<th style="width:60px">单位</th>' +
     '<th style="width:70px" class="num">人工单价</th>' +
     '<th style="width:60px" class="num">辅材费</th>' +
@@ -1047,7 +1048,8 @@ function renderBmPreview(newCount, updCount, skipCount) {
       '<td><span class="'+statusClass+'">'+statusText+'</span></td>' +
       '<td '+(codeClass||'style="color:#888"')+'>'+esc(code)+'</td>' +
       '<td>'+esc(p.trade_team||'<span style="color:#cf1322">缺</span>')+'</td>' +
-      '<td><span title="'+esc(p.spec||'')+'">'+esc(p.item_name||'<span style="color:#cf1322">缺</span>')+'</span></td>' +
+      '<td><span title="'+esc(p.item_name||'')+'">'+esc(p.item_name||'<span style="color:#cf1322">缺</span>')+'</span></td>' +
+      '<td style="font-size:11px;color:#555;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(p.spec||'')+'">'+esc((p.spec||'').substring(0,40))+'</td>' +
       '<td>'+esc(p.unit||'<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td class="num">'+(p.unit_price !== null && p.unit_price !== undefined ? (typeof p.unit_price==='number'?p.unit_price.toFixed(2):p.unit_price) : '<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td class="num" style="color:#888;font-size:11px">'+(aux!==''?(typeof aux==='number'?aux.toFixed(2):aux):'—')+'</td>' +
