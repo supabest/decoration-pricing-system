@@ -9,6 +9,7 @@ interface QuickAction {
   desc: string
   path: string
   color: string
+  external?: boolean
 }
 
 export default function Dashboard() {
@@ -45,6 +46,7 @@ export default function Dashboard() {
     { emoji: '💰', label: '材料信息价', desc: '维护辅材市场价格', path: '/material-prices', color: '#0b7b50' },
     ...(user?.is_admin ? [
       { emoji: '👥', label: '用户审批', desc: '管理用户注册与审批', path: '/approval', color: '#b07000' },
+      { emoji: '📋', label: '基准价管理', desc: '批量导入/更新基准价数据', path: '/admin.html', color: '#1d6fa5', external: true },
     ] : []),
   ]
 
@@ -93,7 +95,13 @@ export default function Dashboard() {
         {quickActions.map(action => (
           <div
             key={action.path}
-            onClick={() => navigate(action.path)}
+            onClick={() => {
+              if (action.external) {
+                window.location.href = import.meta.env.BASE_URL + action.path.replace(/^\//, '')
+              } else {
+                navigate(action.path)
+              }
+            }}
             style={{
               background: '#fff', borderRadius: 12, padding: '20px 22px',
               border: '1px solid #e8e8e8', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
