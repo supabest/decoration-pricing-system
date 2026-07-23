@@ -987,10 +987,10 @@ function buildBmPreview() {
       p._oldCode = matched.internal_code;
       updCount++;
     } else {
-      // 分配新编号
+      // 分配新编号（末尾加 B 以区分原始 497 条）
       maxCode++;
       p._status = 'new';
-      p._newCode = 'NS-' + String(maxCode).padStart(3,'0');
+      p._newCode = 'NS-' + String(maxCode).padStart(3,'0') + 'B';
       p._matchType = p.internal_code ? '新编号' : '自动编号';
       newCount++;
     }
