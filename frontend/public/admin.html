@@ -326,13 +326,13 @@ async function loadUsers() {
     document.getElementById('pendingCount').textContent = '（'+pending.length+'）';
     if (!pending.length) document.getElementById('pendingUsers').innerHTML = '<div class="empty">暂无</div>';
     else document.getElementById('pendingUsers').innerHTML = pending.map(u =>
-      '<div class="card"><div class="row"><span class="name">'+esc(u.display_name||u.username)+'</span><span class="email">'+esc(u.username)+'</span><span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span><button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">✅ 批准</button><button class="btn btn-warn btn-sm" onclick="rejectUser(\''+u.id+'\')">✕ 拒绝</button></div></div>'
+      '<div class="card"><div class="row"><span class="name" style="cursor:pointer" title="点击修改昵称" onclick="setDisplayName(\''+u.id+'\')">'+esc(u.display_name||u.username)+' ✏️</span><span class="email">'+esc(u.username)+'</span><span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span><button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">✅ 批准</button><button class="btn btn-warn btn-sm" onclick="rejectUser(\''+u.id+'\')">✕ 拒绝</button></div></div>'
     ).join('');
 
     // 全部用户
     const all = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&order=created_at.desc');
     document.getElementById('allUsers').innerHTML = all.map(u =>
-      '<div class="card"><div class="row"><span class="name">'+esc(u.display_name||u.username)+'</span><span class="email">'+esc(u.username)+'</span>'+
+      '<div class="card"><div class="row"><span class="name" style="cursor:pointer" title="点击修改昵称" onclick="setDisplayName(\''+u.id+'\')">'+esc(u.display_name||u.username)+' ✏️</span><span class="email">'+esc(u.username)+'</span>'+
       '<span class="badge '+(u.is_admin?'badge-admin':u.is_approved?'badge-ok':'badge-wait')+'">'+(u.is_admin?'管理员':u.is_approved?'已批准':'待审批')+'</span>'+
       '<span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span>'+
       (!u.is_approved&&!u.is_admin?'<button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">批准</button>':'')+
@@ -385,6 +385,19 @@ async function setAdmin(id) {
   const h = {...authHeaders(),'Prefer':'return=minimal'};
   await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({is_admin:true,is_approved:true})});
   loadUsers();
+}
+
+async function setDisplayName(id) {
+  const curName = prompt('设置该用户的显示名称（昵称）：');
+  if (curName === null) return; // 取消
+  const name = curName.trim();
+  if (!name) { alert('名称不能为空'); return; }
+  const h = {...authHeaders(),'Prefer':'return=minimal'};
+  try {
+    const r = await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify({display_name: name})});
+    if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,80)); }
+    loadUsers();
+  } catch(e) { alert('修改失败：'+e.message); }
 }
 
 
