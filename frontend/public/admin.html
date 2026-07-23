@@ -986,6 +986,9 @@ function buildBmPreview() {
       p._matchType = matchType;
       p._oldPrice = matched.unit_price;
       p._oldCode = matched.internal_code;
+      // 对比项目特征
+      p._oldSpec = matched.spec || '';
+      p._specDiff = (p.spec||'').trim() !== (matched.spec||'').trim();
       updCount++;
     } else {
       // 分配新编号（末尾加 B 以区分原始 497 条）
@@ -1018,12 +1021,12 @@ function renderBmPreview(newCount, updCount, skipCount) {
     '<th style="width:80px">编号</th>' +
     '<th style="width:60px">班组</th>' +
     '<th>项目名称</th>' +
-    '<th style="width:120px">项目特征</th>' +
+    '<th style="width:140px">项目特征</th>' +
     '<th style="width:60px">单位</th>' +
     '<th style="width:70px" class="num">人工单价</th>' +
     '<th style="width:60px" class="num">辅材费</th>' +
     '<th style="width:60px" class="num">主材费</th>' +
-    '<th style="width:80px">匹配方式</th>';
+    '<th style="width:100px">匹配方式</th>';
 
   const tbody = document.getElementById('bmPreviewBody');
   tbody.innerHTML = bmParsed.map((p, i) => {
@@ -1043,13 +1046,24 @@ function renderBmPreview(newCount, updCount, skipCount) {
     let matchLabel = p._matchType || '';
     if (isUpd) matchLabel += ' <span style="color:#888;font-size:10px">(原价:'+(p._oldPrice?parseFloat(p._oldPrice).toFixed(2):'—')+')</span>';
 
+    // 项目特征对比
+    let specHtml = '';
+    if (isNew) {
+      specHtml = '<span title="'+esc(p.spec||'')+'">'+esc((p.spec||'').substring(0,40))+'</span>';
+    } else {
+      const sameSpec = !p._specDiff;
+      specHtml = sameSpec
+        ? '<span style="color:#0b7b50" title="'+esc(p.spec||'')+'">✅ '+esc((p.spec||'').substring(0,30))+'</span>'
+        : '<span style="color:#b07000" title="导入:'+esc(p.spec||'')+' | 库内:'+esc(p._oldSpec||'')+'">⚠️ 导入:'+esc((p.spec||'').substring(0,18))+'…</span>';
+    }
+
     return '<tr'+(isErr?' style="background:#fff2f0"':'')+'>' +
       '<td style="color:#aaa;font-size:11px">'+p._rowNum+'</td>' +
       '<td><span class="'+statusClass+'">'+statusText+'</span></td>' +
       '<td '+(codeClass||'style="color:#888"')+'>'+esc(code)+'</td>' +
       '<td>'+esc(p.trade_team||'<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td><span title="'+esc(p.item_name||'')+'">'+esc(p.item_name||'<span style="color:#cf1322">缺</span>')+'</span></td>' +
-      '<td style="font-size:11px;color:#555;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(p.spec||'')+'">'+esc((p.spec||'').substring(0,40))+'</td>' +
+      '<td style="font-size:11px;max-width:140px">'+specHtml+'</td>' +
       '<td>'+esc(p.unit||'<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td class="num">'+(p.unit_price !== null && p.unit_price !== undefined ? (typeof p.unit_price==='number'?p.unit_price.toFixed(2):p.unit_price) : '<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td class="num" style="color:#888;font-size:11px">'+(aux!==''?(typeof aux==='number'?aux.toFixed(2):aux):'—')+'</td>' +
@@ -1071,11 +1085,12 @@ function exportBmPreview() {
   if (!bmParsed.length) { bmMsg('⚠️ 没有可导出的数据', true); return; }
 
   const wb = XLSX.utils.book_new();
-  const aoa = [['状态', '编号', '班组', '工种', '项目名称', '项目特征', '单位', '人工单价', '辅材费', '主材费', '损耗率', '匹配方式']];
+  const aoa = [['状态', '编号', '班组', '工种', '项目名称', '项目特征(导入)', '项目特征(库内)', '规格对比', '单位', '人工单价', '辅材费', '主材费', '损耗率', '匹配方式']];
   bmParsed.forEach(p => {
     const isNew = p._status === 'new';
     const code = isNew ? (p._newCode||'') : (p.internal_code||p._oldCode||'');
     const statusText = isNew ? '新增' : '更新';
+    const specDiff = p._specDiff ? '⚠️ 不同' : (isNew ? '—' : '✅ 一致');
     aoa.push([
       statusText,
       code,
@@ -1083,6 +1098,8 @@ function exportBmPreview() {
       p.work_type || '',
       p.item_name || '',
       p.spec || '',
+      isNew ? '' : (p._oldSpec || ''),
+      specDiff,
       p.unit || '',
       p.unit_price !== null && p.unit_price !== undefined ? p.unit_price : '',
       p.auxiliary_price !== null && p.auxiliary_price !== undefined ? p.auxiliary_price : '',
@@ -1095,8 +1112,8 @@ function exportBmPreview() {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   // 列宽
   ws['!cols'] = [
-    {wch:8},{wch:12},{wch:10},{wch:8},{wch:30},{wch:40},{wch:6},
-    {wch:12},{wch:10},{wch:10},{wch:8},{wch:14},
+    {wch:8},{wch:12},{wch:10},{wch:8},{wch:30},{wch:30},{wch:30},{wch:10},
+    {wch:6},{wch:12},{wch:10},{wch:10},{wch:8},{wch:14},
   ];
   // 表头样式
   const range = XLSX.utils.decode_range(ws['!ref']||'A1');
