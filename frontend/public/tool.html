@@ -245,7 +245,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
     <button class="btn btn-sm" onclick="openFeedback()" style="color:var(--acc);border-color:var(--acc)">💡 意见反馈</button>
     <button class="btn btn-sm" onclick="openUnmatchedModal()" style="color:var(--yel);border-color:var(--yel)">📋 补缺清单</button>
     <a href="javascript:void(0)" onclick="window.parent.location.hash='#/dashboard'" class="btn btn-sm" style="color:var(--tx2);border-color:var(--border);text-decoration:none">← 返回工作台</a>
-    <a href="admin.html" class="btn btn-sm" style="color:var(--acc);border-color:var(--acc);text-decoration:none">⚙ 用户管理</a>
+    <a href="javascript:void(0)" onclick="if(window!==window.top){window.parent.location.href=window.parent.location.href.split('#')[0]+'admin.html'}else{location.href='admin.html'}" class="btn btn-sm" style="color:var(--acc);border-color:var(--acc);text-decoration:none">⚙ 用户管理</a>
     <span id="userNameDisplay" class="" style="font-size:11px;color:var(--tx2);margin-left:4px"></span>
     <button class="btn btn-sm" onclick="doLogoutTool()" style="color:var(--red);border-color:var(--red);padding:3px 8px;font-size:11px">退出</button>
   </div>
