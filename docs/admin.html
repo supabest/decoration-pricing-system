@@ -229,8 +229,9 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
       <!-- 确认导入按钮 -->
       <div id="bmActions" class="hidden" style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
         <span id="bmActionHint" style="font-size:12px;color:#888;flex:1"></span>
+        <button class="btn btn-pri" onclick="exportBmPreview()">📥 导出预览表</button>
         <button class="btn" onclick="clearBmImport()">🗑 清空</button>
-        <button class="btn btn-pri" id="bmConfirmBtn" onclick="confirmBmImport()">✅ 确认导入到 Supabase</button>
+        <button class="btn btn-suc" id="bmConfirmBtn" onclick="confirmBmImport()">✅ 确认导入到 Supabase</button>
       </div>
     </div>
 
@@ -1061,6 +1062,58 @@ function renderBmPreview(newCount, updCount, skipCount) {
   document.getElementById('bmConfirmBtn').disabled = hasError;
   document.getElementById('bmConfirmBtn').style.opacity = hasError ? '0.5' : '1';
   document.getElementById('bmActionHint').textContent = hasError ? '⚠️ 存在缺项，请修正 Excel 后重新上传' : (newCount + ' 条新增 + ' + updCount + ' 条更新');
+}
+
+/** 导出预览表供审核 */
+function exportBmPreview() {
+  if (!bmParsed.length) { bmMsg('⚠️ 没有可导出的数据', true); return; }
+
+  const wb = XLSX.utils.book_new();
+  const aoa = [['状态', '编号', '班组', '工种', '项目名称', '项目特征', '单位', '人工单价', '辅材费', '主材费', '损耗率', '匹配方式']];
+  bmParsed.forEach(p => {
+    const isNew = p._status === 'new';
+    const code = isNew ? (p._newCode||'') : (p.internal_code||p._oldCode||'');
+    const statusText = isNew ? '新增' : '更新';
+    aoa.push([
+      statusText,
+      code,
+      p.trade_team || '',
+      p.work_type || '',
+      p.item_name || '',
+      p.spec || '',
+      p.unit || '',
+      p.unit_price !== null && p.unit_price !== undefined ? p.unit_price : '',
+      p.auxiliary_price !== null && p.auxiliary_price !== undefined ? p.auxiliary_price : '',
+      p.material_price !== null && p.material_price !== undefined ? p.material_price : '',
+      p.material_loss_rate !== null && p.material_loss_rate !== undefined ? p.material_loss_rate : '',
+      p._matchType || '',
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // 列宽
+  ws['!cols'] = [
+    {wch:8},{wch:12},{wch:10},{wch:8},{wch:30},{wch:40},{wch:6},
+    {wch:12},{wch:10},{wch:10},{wch:8},{wch:14},
+  ];
+  // 表头样式
+  const range = XLSX.utils.decode_range(ws['!ref']||'A1');
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const ref = XLSX.utils.encode_cell({r:0,c});
+    if (ws[ref]) ws[ref].s = {font:{bold:true,sz:11}, fill:{fgColor:{rgb:'F0F0F0'},patternType:'solid'}, alignment:{wrapText:true}};
+  }
+  // 数据行自动换行
+  for (let r = 1; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const ref = XLSX.utils.encode_cell({r,c});
+      if (ws[ref]) ws[ref].s = {alignment:{wrapText:true}};
+    }
+  }
+  ws['!rows'] = aoa.map((_, i) => i === 0 ? {hpt:22} : {hpt:-1}); // 表头固定高度，数据行自动
+
+  XLSX.utils.book_append_sheet(wb, ws, '待导入预览');
+  XLSX.writeFile(wb, '基准价_待导入_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  bmMsg('✅ 已导出预览表，请审核编号/分类/价格，确认无误后再点击"确认导入"', false);
 }
 
 /** 清空导入结果 */
