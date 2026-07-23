@@ -308,6 +308,8 @@ function switchTab(tab) {
   if (tab === 'prices') initPriceEntry();
   if (tab === 'knowledge') loadKnowledge();
   if (tab === 'benchmark') initBenchmarkTab();
+  // 更新 URL hash 以便外部链接直接跳转到对应 Tab
+  history.replaceState(null, '', '#' + tab);
 }
 
 // ═══════════ 用户管理 Tab（原 load 逻辑） ═══════════
@@ -1152,7 +1154,15 @@ async function load() {
   }
   document.getElementById('loadMsg').classList.add('hidden');
   document.getElementById('content').classList.remove('hidden');
-  await loadUsers();
+
+  // URL hash 指定初始 Tab（admin.html#prices → 信息价录入, admin.html#benchmark → 基准价管理）
+  const targetTab = location.hash.replace(/^#/, '') || '';
+  if (['users','prices','knowledge','benchmark'].includes(targetTab)) {
+    await loadUsers(); // 先加载用户数据（后台加载）
+    switchTab(targetTab);
+  } else {
+    await loadUsers();
+  }
 }
 
 load();

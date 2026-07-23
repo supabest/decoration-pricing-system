@@ -101,25 +101,6 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
 .bm-search select{padding:6px 10px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;font-family:inherit;background:#fff}
 .bm-wrap{overflow-x:auto;max-height:500px;overflow-y:auto;border:1px solid #e8e8e8;border-radius:8px}
 
-/* 筛选按钮组 */
-.bm-filters{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
-.bm-filters .fltr{padding:3px 10px;border-radius:14px;border:1px solid #d9d9d9;background:#fff;font-size:11px;cursor:pointer;transition:all .12s;color:#666}
-.bm-filters .fltr:hover{border-color:#1d6fa5;color:#1d6fa5}
-.bm-filters .fltr.active{border-color:#1d6fa5;background:#e6f7ff;color:#1d6fa5;font-weight:600}
-.bm-filters .fltr .cnt{font-weight:600;margin-left:2px}
-
-/* 行状态标记 */
-.bm-table .sup-missing{color:#cf1322!important;font-weight:600!important;cursor:pointer}
-.bm-table .sup-ok{color:#389e0d!important}
-.bm-table tr.sup-row td{background:#fff8f0!important}
-
-/* 内联编辑输入框 */
-.bm-table .inline-edit{width:70px;padding:2px 6px;border:1px solid #1d6fa5;border-radius:4px;font-size:12px;font-family:inherit;text-align:right;background:#fff;outline:none;box-shadow:0 0 0 2px rgba(29,111,165,.12)}
-.bm-table .inline-edit-sm{width:50px}
-.bm-table td .edit-btn{font-size:10px;color:#1d6fa5;cursor:pointer;padding:1px 4px;border-radius:3px;opacity:0.4;transition:.12s}
-.bm-table td:hover .edit-btn{opacity:1}
-.bm-table td .edit-btn:hover{background:#e6f7ff}
-
 /* Status bar */
 .status-bar{font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:6px}
 .status-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
@@ -256,15 +237,6 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
     <!-- Section 2: 全部基准价 -->
     <div class="section">
       <h3>📖 全部基准价</h3>
-
-      <!-- 待补充过滤 -->
-      <div class="bm-filters" id="bmFilters">
-        <span class="fltr active" data-filter="all" onclick="setBmFilter('all')">🔄 全部 <span class="cnt" id="fAll"></span></span>
-        <span class="fltr" data-filter="no-aux" onclick="setBmFilter('no-aux')">📋 缺辅材费 <span class="cnt" id="fNoAux"></span></span>
-        <span class="fltr" data-filter="no-mat" onclick="setBmFilter('no-mat')">📋 缺主材费 <span class="cnt" id="fNoMat"></span></span>
-        <span class="fltr" data-filter="no-loss" onclick="setBmFilter('no-loss')">📋 缺损耗率 <span class="cnt" id="fNoLoss"></span></span>
-      </div>
-
       <div class="bm-search">
         <input type="text" id="bmSearchInput" placeholder="搜索项目名称、编号、班组..." oninput="renderBmBrowse()">
         <select id="bmTeamFilter" onchange="renderBmBrowse()">
@@ -281,19 +253,17 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
               <th style="width:36px">#</th>
               <th style="width:80px">编号</th>
               <th style="width:70px">班组</th>
-              <th style="width:56px">工种</th>
+              <th style="width:60px">工种</th>
               <th>项目名称</th>
-              <th style="width:90px">项目特征</th>
-              <th style="width:38px">单位</th>
-              <th style="width:66px" class="num">人工单价</th>
+              <th style="width:100px">项目特征</th>
+              <th style="width:40px">单位</th>
+              <th style="width:70px" class="num">人工单价</th>
               <th style="width:60px" class="num">辅材费</th>
               <th style="width:60px" class="num">主材费</th>
-              <th style="width:50px" class="num">损耗率</th>
-              <th style="width:48px">操作</th>
             </tr>
           </thead>
           <tbody id="bmBrowseBody">
-            <tr><td colspan="12" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>
+            <tr><td colspan="10" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -338,6 +308,8 @@ function switchTab(tab) {
   if (tab === 'prices') initPriceEntry();
   if (tab === 'knowledge') loadKnowledge();
   if (tab === 'benchmark') initBenchmarkTab();
+  // 更新 URL hash 以便外部链接直接跳转到对应 Tab
+  history.replaceState(null, '', '#' + tab);
 }
 
 // ═══════════ 用户管理 Tab（原 load 逻辑） ═══════════
@@ -805,7 +777,7 @@ async function initBenchmarkTab() {
 
 /** 从 Supabase 加载全部基准价 */
 async function refreshBmData() {
-  document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="12" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>';
+  document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>';
   const h = authHeaders();
   try {
     const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?select=*&order=trade_team.asc',{headers:h});
@@ -821,19 +793,11 @@ async function refreshBmData() {
     if (curVal) sel.value = curVal;
     renderBmBrowse();
   } catch(e) {
-    document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="12" style="text-align:center;color:#cf1322;padding:40px">❌ 加载失败：'+esc(e.message.substring(0,60))+'</td></tr>';
+    document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:#cf1322;padding:40px">❌ 加载失败：'+esc(e.message.substring(0,60))+'</td></tr>';
   }
 }
 
 /** 渲染基准价浏览表 */
-let bmFilter = 'all'; // current filter: all, no-aux, no-mat, no-loss
-
-function setBmFilter(f) {
-  bmFilter = f;
-  document.querySelectorAll('#bmFilters .fltr').forEach(el => el.classList.toggle('active', el.dataset.filter === f));
-  renderBmBrowse();
-}
-
 function renderBmBrowse() {
   const keyword = (document.getElementById('bmSearchInput').value||'').trim().toLowerCase();
   const teamFilter = document.getElementById('bmTeamFilter').value;
@@ -848,54 +812,26 @@ function renderBmBrowse() {
   }
   if (teamFilter) list = list.filter(d => d.trade_team === teamFilter);
 
-  // 统计各分类数量（基于搜索+班组过滤后的全量，不叠加待补充筛选用）
-  const cntNoAux = list.filter(d => !d.auxiliary_price).length;
-  const cntNoMat = list.filter(d => !d.material_price).length;
-  const cntNoLoss = list.filter(d => d.material_loss_rate === null || d.material_loss_rate === undefined || d.material_loss_rate === '');
-  document.getElementById('fAll').textContent = list.length;
-  document.getElementById('fNoAux').textContent = cntNoAux;
-  document.getElementById('fNoMat').textContent = cntNoMat;
-  document.getElementById('fNoLoss').textContent = cntNoLoss;
-
-  // 待补充筛选（叠加在搜索+班组过滤之上）
-  if (bmFilter === 'no-aux') list = list.filter(d => !d.auxiliary_price);
-  else if (bmFilter === 'no-mat') list = list.filter(d => !d.material_price);
-  else if (bmFilter === 'no-loss') list = list.filter(d => d.material_loss_rate === null || d.material_loss_rate === undefined || d.material_loss_rate === '');
-
   document.getElementById('bmBrowseCount').textContent = '共 ' + list.length + ' 条';
   const tbody = document.getElementById('bmBrowseBody');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#888;padding:40px">暂无数据</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">暂无数据</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map((d,i) => {
-    const missingAux = !d.auxiliary_price;
-    const missingMat = !d.material_price;
-    const missingLoss = d.material_loss_rate === null || d.material_loss_rate === undefined || d.material_loss_rate === '';
-    const isSupRow = missingAux || missingMat || missingLoss;
-    return '<tr class="'+(isSupRow?'sup-row':'')+'">' +
-      '<td style="color:#aaa;font-size:11px">'+(i+1)+'</td>' +
-      '<td style="font-size:11px;color:#888;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.internal_code||'')+'">'+esc(d.internal_code||'')+'</td>' +
-      '<td style="max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.trade_team||'')+'">'+esc(d.trade_team)+'</td>' +
-      '<td style="font-size:11px;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.work_type||'')+'">'+esc(d.work_type||'')+'</td>' +
-      '<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.spec||'')+'">'+esc(d.item_name)+'</td>' +
-      '<td style="font-size:11px;color:#888;max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.spec||'')+'">'+esc((d.spec||'').substring(0,24))+'</td>' +
-      '<td>'+esc(d.unit)+'</td>' +
-      '<td class="num">'+(d.unit_price?parseFloat(d.unit_price).toFixed(2):'—')+'</td>' +
-      '<td class="num '+(missingAux?'sup-missing':'')+'" onclick="editBmCell('+d.id+',\'auxiliary_price\',this)" title="点击编辑">'+
-        (d.auxiliary_price?parseFloat(d.auxiliary_price).toFixed(2):'—')+
-      '</td>' +
-      '<td class="num '+(missingMat?'sup-missing':'')+'" onclick="editBmCell('+d.id+',\'material_price\',this)" title="点击编辑">'+
-        (d.material_price?parseFloat(d.material_price).toFixed(2):'—')+
-      '</td>' +
-      '<td class="num '+(missingLoss?'sup-missing':'')+'" onclick="editBmCell('+d.id+',\'material_loss_rate\',this)" title="点击编辑">'+
-        (d.material_loss_rate !== null && d.material_loss_rate !== undefined && d.material_loss_rate !== '' ? parseFloat(d.material_loss_rate).toFixed(1)+'%' : '—')+
-      '</td>' +
-      '<td style="text-align:center">'+
-        '<span class="edit-btn" onclick="editBmRow('+d.id+')" title="编辑整行">✏️</span>'+
-      '</td>' +
-      '</tr>';
-  }).join('');
+  tbody.innerHTML = list.map((d,i) =>
+    '<tr>' +
+    '<td style="color:#aaa;font-size:11px">'+(i+1)+'</td>' +
+    '<td style="font-size:11px;color:#888">'+esc(d.internal_code||'')+'</td>' +
+    '<td>'+esc(d.trade_team)+'</td>' +
+    '<td style="font-size:11px">'+esc(d.work_type||'')+'</td>' +
+    '<td><span title="'+esc(d.spec||'')+'">'+esc(d.item_name)+'</span></td>' +
+    '<td style="font-size:11px;color:#888;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d.spec||'')+'">'+esc((d.spec||'').substring(0,30))+'</td>' +
+    '<td>'+esc(d.unit)+'</td>' +
+    '<td class="num">'+(d.unit_price?parseFloat(d.unit_price).toFixed(2):'—')+'</td>' +
+    '<td class="num" style="color:#888;font-size:11px">'+(d.auxiliary_price?parseFloat(d.auxiliary_price).toFixed(2):'—')+'</td>' +
+    '<td class="num" style="color:#888;font-size:11px">'+(d.material_price?parseFloat(d.material_price).toFixed(2):'—')+'</td>' +
+    '</tr>'
+  ).join('');
 }
 
 // ═══════════ Excel 文件处理 ═══════════
@@ -995,11 +931,9 @@ function buildBmPreview() {
   // 建立索引用于匹配
   const idxByCode = {};  // internal_code -> item
   const idxByNameTeam = {}; // item_name|trade_team -> item
-  const idxByTeamCode = {}; // trade_team|internal_code -> item (复合匹配)
   bmData.forEach(d => {
     if (d.internal_code) idxByCode[d.internal_code] = d;
     if (d.item_name && d.trade_team) idxByNameTeam[d.item_name+'|'+d.trade_team] = d;
-    if (d.trade_team && d.internal_code) idxByTeamCode[d.trade_team+'|'+d.internal_code] = d;
   });
 
   // 统计
@@ -1016,7 +950,6 @@ function buildBmPreview() {
 
   bmParsed.forEach(p => {
     const key = (p.item_name||'')+'|'+(p.trade_team||'');
-    const teamCodeKey = (p.trade_team||'')+'|'+(p.internal_code||'');
     let matched = null;
     let matchType = '';
 
@@ -1025,24 +958,13 @@ function buildBmPreview() {
       matched = idxByCode[p.internal_code];
       matchType = '编码匹配';
     }
-    // 其次按 专业+编码 复合匹配
-    if (!matched && teamCodeKey && idxByTeamCode[teamCodeKey]) {
-      matched = idxByTeamCode[teamCodeKey];
-      matchType = '专业+编码匹配';
-      p.internal_code = matched.internal_code;
-    }
-    // 再次按 名称+班组 匹配
+    // 其次按 名称+班组 匹配
     if (!matched && idxByNameTeam[key]) {
       matched = idxByNameTeam[key];
       matchType = '名称+班组匹配';
+      // 沿用库内的编号
       p.internal_code = matched.internal_code;
     }
-
-    // 标记该行的字段完整性
-    const hasAux = p.auxiliary_price !== null && p.auxiliary_price !== undefined;
-    const hasMat = p.material_price !== null && p.material_price !== undefined;
-    const hasLoss = p.material_loss_rate !== null && p.material_loss_rate !== undefined && p.material_loss_rate !== '';
-    p._missingFields = (!hasAux ? ['辅材费'] : []).concat(!hasMat ? ['主材费'] : []).concat(!hasLoss ? ['损耗率'] : []);
 
     if (matched) {
       p._status = 'update';
@@ -1052,6 +974,7 @@ function buildBmPreview() {
       p._oldCode = matched.internal_code;
       updCount++;
     } else {
+      // 分配新编号
       maxCode++;
       p._status = 'new';
       p._newCode = 'NS-' + String(maxCode).padStart(3,'0');
@@ -1076,17 +999,16 @@ function renderBmPreview(newCount, updCount, skipCount) {
   // 预览表格头
   const headRow = document.getElementById('bmPreviewHead');
   headRow.innerHTML =
-    '<th style="width:28px">#</th>' +
-    '<th style="width:44px">状态</th>' +
-    '<th style="width:72px">编号</th>' +
-    '<th style="width:56px">班组</th>' +
+    '<th style="width:30px">#</th>' +
+    '<th style="width:50px">状态</th>' +
+    '<th style="width:80px">编号</th>' +
+    '<th style="width:60px">班组</th>' +
     '<th>项目名称</th>' +
-    '<th style="width:44px">单位</th>' +
-    '<th style="width:60px" class="num">人工单价</th>' +
-    '<th style="width:54px" class="num">辅材费</th>' +
-    '<th style="width:54px" class="num">主材费</th>' +
-    '<th style="width:70px">待补充</th>' +
-    '<th style="width:54px">匹配方式</th>';
+    '<th style="width:60px">单位</th>' +
+    '<th style="width:70px" class="num">人工单价</th>' +
+    '<th style="width:60px" class="num">辅材费</th>' +
+    '<th style="width:60px" class="num">主材费</th>' +
+    '<th style="width:80px">匹配方式</th>';
 
   const tbody = document.getElementById('bmPreviewBody');
   tbody.innerHTML = bmParsed.map((p, i) => {
@@ -1103,12 +1025,6 @@ function renderBmPreview(newCount, updCount, skipCount) {
     const aux = p.auxiliary_price !== null && p.auxiliary_price !== undefined ? p.auxiliary_price : '';
     const mat = p.material_price !== null && p.material_price !== undefined ? p.material_price : '';
 
-    // 待补充标记
-    const missing = p._missingFields || [];
-    const missingHtml = missing.length > 0
-      ? '<span style="color:#cf1322;font-size:10px;font-weight:600">⚠️ '+missing.join('/')+'</span>'
-      : '<span style="color:#389e0d;font-size:10px">✅ 完整</span>';
-
     let matchLabel = p._matchType || '';
     if (isUpd) matchLabel += ' <span style="color:#888;font-size:10px">(原价:'+(p._oldPrice?parseFloat(p._oldPrice).toFixed(2):'—')+')</span>';
 
@@ -1122,7 +1038,6 @@ function renderBmPreview(newCount, updCount, skipCount) {
       '<td class="num">'+(p.unit_price !== null && p.unit_price !== undefined ? (typeof p.unit_price==='number'?p.unit_price.toFixed(2):p.unit_price) : '<span style="color:#cf1322">缺</span>')+'</td>' +
       '<td class="num" style="color:#888;font-size:11px">'+(aux!==''?(typeof aux==='number'?aux.toFixed(2):aux):'—')+'</td>' +
       '<td class="num" style="color:#888;font-size:11px">'+(mat!==''?(typeof mat==='number'?mat.toFixed(2):mat):'—')+'</td>' +
-      '<td style="font-size:10px;text-align:center">'+missingHtml+'</td>' +
       '<td><span class="match-tag">'+matchLabel+'</span></td>' +
       '</tr>';
   }).join('');
@@ -1231,96 +1146,6 @@ async function confirmBmImport() {
   clearBmImport();
   await refreshBmData();
 }
-
-// ═══════════ 内联编辑功能 ═══════════
-
-/** 点击单元格编辑（辅材费/主材费/损耗率） */
-function editBmCell(id, field, td) {
-  if (td.querySelector('input')) return;
-  const oldText = td.textContent.trim().replace(/[—%]/g,'') || '';
-  const isPercent = field === 'material_loss_rate';
-  const inp = document.createElement('input');
-  inp.type = 'text';
-  inp.inputMode = 'decimal';
-  inp.className = 'inline-edit' + (isPercent ? ' inline-edit-sm' : '');
-  inp.value = oldText === '—' ? '' : oldText;
-  td.innerHTML = '';
-  td.appendChild(inp);
-  inp.focus();
-  inp.select();
-
-  let saved = false;
-  const doSave = async () => {
-    if (saved) return;
-    saved = true;
-    let val = inp.value.trim();
-    if (val === '') { cancelEdit(td, oldText, isPercent); return; }
-    let num = parseFloat(val);
-    if (isNaN(num)) { cancelEdit(td, oldText, isPercent); return; }
-    const h = {...authHeaders(), 'Prefer': 'return=minimal'};
-    try {
-      const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?id=eq.'+id, {
-        method: 'PATCH', headers: {...h,'Content-Type':'application/json'},
-        body: JSON.stringify({[field]: num})
-      });
-      if (!r.ok) throw new Error((await r.text()).substring(0,50));
-      const item = bmData.find(d => d.id === id);
-      if (item) item[field] = num;
-      renderBmBrowse();
-      bmMsg('✅ 已更新', false);
-    } catch(e) {
-      cancelEdit(td, oldText, isPercent);
-      bmMsg('❌ 保存失败：'+e.message, true);
-    }
-  };
-
-  inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-    if (e.key === 'Escape') { e.preventDefault(); cancelEdit(td, oldText, isPercent); saved = true; }
-  });
-  inp.addEventListener('blur', doSave);
-}
-
-function cancelEdit(td, oldText, isPercent) {
-  td.innerHTML = oldText && oldText !== '—' ? (isPercent ? parseFloat(oldText).toFixed(1)+'%' : parseFloat(oldText).toFixed(2)) : '—';
-  td.className = td.className.replace(' sup-editing','');
-}
-
-/** 编辑整行（通过 prompt 快速补充缺失字段） */
-function editBmRow(id) {
-  const item = bmData.find(d => d.id === id);
-  if (!item) return;
-  const fields = [
-    {key:'auxiliary_price', label:'辅材费', current: item.auxiliary_price},
-    {key:'material_price', label:'主材费', current: item.material_price},
-    {key:'material_loss_rate', label:'损耗率(%)', current: item.material_loss_rate},
-  ];
-  const missing = fields.filter(f => f.current === null || f.current === undefined || f.current === '');
-  if (!missing.length) { bmMsg('✅ 该条目数据完整', false); return; }
-
-  const updates = {};
-  for (const f of missing) {
-    const v = prompt(f.label + '（当前：空）\n输入数值直接保存：');
-    if (v === null) return;
-    const n = parseFloat(v);
-    if (!isNaN(n) && n >= 0) updates[f.key] = n;
-  }
-  if (!Object.keys(updates).length) return;
-
-  const h = {...authHeaders(), 'Prefer': 'return=minimal'};
-  fetch(SUPABASE_URL+'/rest/v1/benchmark_items?id=eq.'+id, {
-    method: 'PATCH', headers: {...h,'Content-Type':'application/json'},
-    body: JSON.stringify(updates)
-  }).then(r => {
-    if (!r.ok) throw new Error();
-    Object.assign(item, updates);
-    renderBmBrowse();
-    bmMsg('✅ 已补充 ' + Object.keys(updates).length + ' 个字段', false);
-  }).catch(() => {
-    bmMsg('❌ 保存失败', true);
-  });
-}
-
 async function load() {
   const token = localStorage.getItem('sb-access-token');
   if (!token) {
@@ -1329,7 +1154,15 @@ async function load() {
   }
   document.getElementById('loadMsg').classList.add('hidden');
   document.getElementById('content').classList.remove('hidden');
-  await loadUsers();
+
+  // URL hash 指定初始 Tab（admin.html#prices → 信息价录入, admin.html#benchmark → 基准价管理）
+  const targetTab = location.hash.replace(/^#/, '') || '';
+  if (['users','prices','knowledge','benchmark'].includes(targetTab)) {
+    await loadUsers(); // 先加载用户数据（后台加载）
+    switchTab(targetTab);
+  } else {
+    await loadUsers();
+  }
 }
 
 load();

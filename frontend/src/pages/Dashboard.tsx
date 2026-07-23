@@ -64,7 +64,7 @@ export default function Dashboard() {
     { emoji: '🧮', label: '套价工具', desc: '导入清单，自动匹配基准价与辅材', path: '/pricing', color: '#0f3460' },
     { emoji: '📊', label: '基准价查询', desc: '浏览 497 条企业基准价数据', path: '/', color: '#1d6fa5' },
     { emoji: '🧱', label: '辅材规则', desc: '管理 21 条辅材计算规则', path: '/auxiliary-rules', color: '#7b4b9a' },
-    { emoji: '💰', label: '材料信息价', desc: '维护辅材市场价格', path: '/material-prices', color: '#0b7b50' },
+    { emoji: '💰', label: '材料信息价', desc: '维护辅材市场价格', path: '/admin.html#prices', color: '#0b7b50', external: true },
     ...(user?.is_admin ? [
       { emoji: '👥', label: '用户审批', desc: '管理用户注册与审批', path: '/approval', color: '#b07000' },
       { emoji: '📋', label: '基准价管理', desc: '批量导入/更新基准价数据', path: '/admin.html', color: '#1d6fa5', external: true },
