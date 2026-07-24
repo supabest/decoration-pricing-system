@@ -106,8 +106,7 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
 .bm-edit:hover{border-color:#d9d9d9;background:#fafbfc}
 .bm-edit:focus{border-color:#1d6fa5;background:#fff;outline:none;box-shadow:0 0 0 2px rgba(29,111,165,.12)}
 .bm-edit-num{text-align:right;font-variant-numeric:tabular-nums}
-.bm-edit-saved{animation:bmFlash 1.2s ease-out}
-@keyframes bmFlash{0%{background:#e8f8e0}40%{background:#e8f8e0}to{background:transparent}}
+.bm-edit-dirty{background:#fffbe6!important;border-color:#faad14!important}
 
 /* Status bar */
 .status-bar{font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:6px}
@@ -253,6 +252,8 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
         </select>
         <span style="flex:1"></span>
         <span id="bmBrowseCount" style="font-size:12px;color:#888;align-self:center"></span>
+        <span id="bmDirtyCount" style="display:none;font-size:12px;color:#b07000;align-self:center">📝 已修改 <span id="bmDirtyNum">0</span> 项</span>
+        <button class="btn btn-sm btn-warn" id="bmSaveBtn" onclick="batchSaveBmChanges()" style="display:none;font-weight:600">💾 保存修改</button>
         <button class="btn btn-sm" onclick="refreshBmData()">🔄 刷新</button>
       </div>
       <div class="bm-wrap" id="bmBrowseWrap">
@@ -759,6 +760,7 @@ async function delKnowledge(id) {
 let bmData = [];          // 已有基准价数据（从 Supabase 拉取）
 let bmParsed = [];        // 已解析的导入数据 [{row, status, matchId, ...}]
 let bmTeamList = [];      // 班组列表
+let bmDirty = {};         // 待保存的修改 { id: { field: newValue, ... } }
 
 function bmMsg(text, isErr) {
   const el = document.getElementById('bmMsg');
@@ -799,6 +801,8 @@ async function initBenchmarkTab() {
 
 /** 从 Supabase 加载全部基准价 */
 async function refreshBmData() {
+  bmDirty = {};
+  updateBmDirtyUi();
   document.getElementById('bmBrowseBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">⏳ 加载中...</td></tr>';
   const h = authHeaders();
   try {
@@ -840,65 +844,154 @@ function renderBmBrowse() {
     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;padding:40px">暂无数据</td></tr>';
     return;
   }
-  tbody.innerHTML = list.map((d,i) =>
-    '<tr>' +
+  tbody.innerHTML = list.map((d,i) => {
+    const dirty = bmDirty[d.id] || {};
+    const nameDirty = dirty.item_name !== undefined ? ' bm-edit-dirty' : '';
+    const specDirty = dirty.spec !== undefined ? ' bm-edit-dirty' : '';
+    const upDirty = dirty.unit_price !== undefined ? ' bm-edit-dirty' : '';
+    const auxDirty = dirty.auxiliary_price !== undefined ? ' bm-edit-dirty' : '';
+    const matDirty = dirty.material_price !== undefined ? ' bm-edit-dirty' : '';
+    const getNameVal = () => dirty.item_name !== undefined ? dirty.item_name : (d.item_name||'');
+    const getSpecVal = () => dirty.spec !== undefined ? dirty.spec : (d.spec||'');
+    const getUpVal = () => {
+      if (dirty.unit_price !== undefined) return dirty.unit_price === null ? '' : parseFloat(dirty.unit_price).toFixed(2);
+      return d.unit_price!==null&&d.unit_price!==undefined ? parseFloat(d.unit_price).toFixed(2) : '';
+    };
+    const getAuxVal = () => {
+      if (dirty.auxiliary_price !== undefined) return dirty.auxiliary_price === null ? '' : parseFloat(dirty.auxiliary_price).toFixed(2);
+      return d.auxiliary_price!==null&&d.auxiliary_price!==undefined ? parseFloat(d.auxiliary_price).toFixed(2) : '';
+    };
+    const getMatVal = () => {
+      if (dirty.material_price !== undefined) return dirty.material_price === null ? '' : parseFloat(dirty.material_price).toFixed(2);
+      return d.material_price!==null&&d.material_price!==undefined ? parseFloat(d.material_price).toFixed(2) : '';
+    };
+    return '<tr>' +
     '<td style="color:#aaa;font-size:11px">'+(i+1)+'</td>' +
     '<td style="font-size:11px;color:#888">'+esc(d.internal_code||'')+'</td>' +
     '<td>'+esc(d.trade_team)+'</td>' +
     '<td style="font-size:11px">'+esc(d.work_type||'')+'</td>' +
-    '<td><input class="bm-edit" value="'+esc(d.item_name||'')+'" onchange="saveBmField(\''+d.id+'\',\'item_name\',this)" onfocus="this.select()" title="点击修改项目名称"></td>' +
-    '<td><input class="bm-edit" value="'+esc(d.spec||'')+'" onchange="saveBmField(\''+d.id+'\',\'spec\',this)" onfocus="this.select()" title="点击修改项目特征" style="min-width:80px"></td>' +
+    '<td><input class="bm-edit'+nameDirty+'" value="'+esc(getNameVal())+'" onchange="markBmDirty(\''+d.id+'\',\'item_name\',this)" onfocus="this.select()" title="点击修改项目名称"></td>' +
+    '<td><input class="bm-edit'+specDirty+'" value="'+esc(getSpecVal())+'" onchange="markBmDirty(\''+d.id+'\',\'spec\',this)" onfocus="this.select()" title="点击修改项目特征" style="min-width:80px"></td>' +
     '<td>'+esc(d.unit)+'</td>' +
-    '<td class="num"><input class="bm-edit bm-edit-num" type="text" inputmode="decimal" value="'+(d.unit_price!==null&&d.unit_price!==undefined?parseFloat(d.unit_price).toFixed(2):'')+'" onchange="saveBmField(\''+d.id+'\',\'unit_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改人工单价"></td>' +
-    '<td class="num"><input class="bm-edit bm-edit-num" type="text" inputmode="decimal" value="'+(d.auxiliary_price!==null&&d.auxiliary_price!==undefined?parseFloat(d.auxiliary_price).toFixed(2):'')+'" onchange="saveBmField(\''+d.id+'\',\'auxiliary_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改辅材费"></td>' +
-    '<td class="num"><input class="bm-edit bm-edit-num" type="text" inputmode="decimal" value="'+(d.material_price!==null&&d.material_price!==undefined?parseFloat(d.material_price).toFixed(2):'')+'" onchange="saveBmField(\''+d.id+'\',\'material_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改主材费"></td>' +
-    '</tr>'
-  ).join('');
+    '<td class="num"><input class="bm-edit bm-edit-num'+upDirty+'" type="text" inputmode="decimal" value="'+esc(getUpVal())+'" onchange="markBmDirty(\''+d.id+'\',\'unit_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改人工单价"></td>' +
+    '<td class="num"><input class="bm-edit bm-edit-num'+auxDirty+'" type="text" inputmode="decimal" value="'+esc(getAuxVal())+'" onchange="markBmDirty(\''+d.id+'\',\'auxiliary_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改辅材费"></td>' +
+    '<td class="num"><input class="bm-edit bm-edit-num'+matDirty+'" type="text" inputmode="decimal" value="'+esc(getMatVal())+'" onchange="markBmDirty(\''+d.id+'\',\'material_price\',this)" onfocus="this.select()" placeholder="—" title="点击修改主材费"></td>' +
+    '</tr>';
+  }).join('');
 }
 
-/** 内联编辑保存基准价字段 */
-let _bmSaveTimer = null;
-async function saveBmField(id, field, inputEl) {
+/** 标记字段已修改（待保存），不直接写入数据库 */
+function markBmDirty(id, field, inputEl) {
   const val = inputEl.value.trim();
-  let body = {};
   if (['unit_price','auxiliary_price','material_price','material_loss_rate'].includes(field)) {
     const num = val === '' ? null : parseFloat(val.replace(/[^0-9.\-]/g,''));
     if (val !== '' && (isNaN(num) || num < 0)) {
       bmMsg('⚠️ 请输入有效的正数', true);
-      const item = bmData.find(d => d.id === id);
-      if (item) inputEl.value = item[field] !== null && item[field] !== undefined ? parseFloat(item[field]).toFixed(2) : '';
       setTimeout(() => bmMsg(''), 2500);
+      const dirty = bmDirty[id] || {};
+      if (dirty[field] !== undefined) {
+        inputEl.value = dirty[field] === null ? '' : parseFloat(dirty[field]).toFixed(2);
+      } else {
+        const item = bmData.find(d => d.id === id);
+        inputEl.value = item && item[field] !== null && item[field] !== undefined ? parseFloat(item[field]).toFixed(2) : '';
+      }
       return;
     }
-    body[field] = num;
+    const item = bmData.find(d => d.id === id);
+    const origVal = item !== null && item !== undefined ? item[field] : undefined;
+    if ((num === null || num === undefined) && (origVal === null || origVal === undefined)) {
+      delete bmDirty[id]?.[field];
+      if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
+      updateBmDirtyUi(); renderBmBrowse(); return;
+    }
+    if (num !== null && origVal !== null && Math.abs(num - origVal) < 0.001) {
+      delete bmDirty[id]?.[field];
+      if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
+      updateBmDirtyUi(); renderBmBrowse(); return;
+    }
+    if (!bmDirty[id]) bmDirty[id] = {};
+    bmDirty[id][field] = num;
   } else {
-    body[field] = val || null;
+    const item = bmData.find(d => d.id === id);
+    const origVal = item ? (item[field]||'') : '';
+    if (val === origVal) {
+      delete bmDirty[id]?.[field];
+      if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
+      updateBmDirtyUi(); renderBmBrowse(); return;
+    }
+    if (!bmDirty[id]) bmDirty[id] = {};
+    bmDirty[id][field] = val || null;
   }
+  updateBmDirtyUi();
+  renderBmBrowse();
+}
+
+function updateBmDirtyUi() {
+  const count = Object.keys(bmDirty).length;
+  const countEl = document.getElementById('bmDirtyCount');
+  const btnEl = document.getElementById('bmSaveBtn');
+  const numEl = document.getElementById('bmDirtyNum');
+  if (count === 0) {
+    countEl.style.display = 'none';
+    btnEl.style.display = 'none';
+  } else {
+    countEl.style.display = 'inline';
+    btnEl.style.display = 'inline-flex';
+    numEl.textContent = count;
+  }
+  if (count > 0) {
+    bmMsg('📝 已修改 ' + count + ' 项基准价，点击「💾 保存修改」写入数据库', false);
+  } else {
+    bmMsg('');
+  }
+}
+
+async function batchSaveBmChanges() {
+  const ids = Object.keys(bmDirty);
+  if (!ids.length) { bmMsg('⚠️ 没有待保存的修改', true); return; }
+
+  const btn = document.getElementById('bmSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 保存中...';
+  bmMsg('');
 
   const h = {...authHeaders(), 'Prefer': 'return=minimal'};
-  try {
-    const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?id=eq.'+id, {
-      method: 'PATCH', headers: {...h,'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,60)); }
-    const item = bmData.find(d => d.id === id);
-    if (item) item[field] = body[field];
-    clearTimeout(_bmSaveTimer);
-    const parentTd = inputEl.closest('td');
-    if (parentTd) {
-      parentTd.classList.add('bm-edit-saved');
-      _bmSaveTimer = setTimeout(() => parentTd.classList.remove('bm-edit-saved'), 1500);
+  let success = 0, fail = 0;
+
+  for (const id of ids) {
+    const fields = bmDirty[id];
+    try {
+      const body = {};
+      for (const [field, val] of Object.entries(fields)) {
+        body[field] = val;
+      }
+      const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?id=eq.'+id, {
+        method: 'PATCH', headers: {...h,'Content-Type':'application/json'}, body: JSON.stringify(body)
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,60)); }
+      const item = bmData.find(d => d.id === id);
+      if (item) {
+        for (const [field, val] of Object.entries(fields)) {
+          item[field] = val;
+        }
+      }
+      success++;
+    } catch(e) {
+      fail++;
+      bmMsg('⚠️ 部分保存失败（' + fail + '项），请重试。错误：' + e.message, true);
     }
-  } catch(e) {
-    bmMsg('❌ 保存失败：'+e.message, true);
-    const item = bmData.find(d => d.id === id);
-    if (item) {
-      inputEl.value = item[field] !== null && item[field] !== undefined
-        ? (['unit_price','auxiliary_price','material_price'].includes(field) ? parseFloat(item[field]).toFixed(2) : item[field])
-        : '';
-    }
-    setTimeout(() => bmMsg(''), 3000);
   }
+
+  bmDirty = {};
+  updateBmDirtyUi();
+  renderBmBrowse();
+
+  btn.disabled = false;
+  btn.innerHTML = '💾 保存修改';
+
+  let msg = '✅ 已保存 ' + success + ' 项基准价到数据库';
+  if (fail > 0) msg += '，失败 ' + fail + ' 项';
+  bmMsg(msg, fail > success);
 }
 
 // ═══════════ Excel 文件处理 ═══════════
