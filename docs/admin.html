@@ -246,7 +246,7 @@ body{background:#f5f6fa;color:#1a2d3d;font-family:'Noto Sans SC',sans-serif;font
     <div class="section">
       <h3>📖 全部基准价</h3>
       <div class="bm-search">
-        <input type="text" id="bmSearchInput" placeholder="搜索项目名称、编号、班组..." oninput="renderBmBrowse()">
+        <input type="text" id="bmSearchInput" placeholder="搜索项目名称、编号、班组..." oninput="_debA('bm',renderBmBrowse,250)">
         <select id="bmTeamFilter" onchange="renderBmBrowse()">
           <option value="">全部班组</option>
         </select>
@@ -308,6 +308,8 @@ function authHeaders() {
   const token = localStorage.getItem('sb-access-token');
   return {'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+token};
 }
+// 防抖工具
+let _debTAdmin={};function _debA(n,fn,ms){clearTimeout(_debTAdmin[n]);_debTAdmin[n]=setTimeout(fn,ms);}
 
 // ═══════════ Tab 切换 ═══════════
 let currentTab = 'users';
@@ -332,15 +334,18 @@ async function loadUsers() {
   const g = async (url) => { const r=await fetch(url,{headers:h}); if(!r.ok)throw new Error(await r.text()); return r.json(); };
   try {
     // 待审批用户
-    const pending = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&is_approved=eq.false&order=created_at.asc');
+    const [pending, all, projects, fb] = await Promise.all([
+      g(SUPABASE_URL+'/rest/v1/profiles?select=*&is_approved=eq.false&order=created_at.asc'),
+      g(SUPABASE_URL+'/rest/v1/profiles?select=*&order=created_at.desc'),
+      g(SUPABASE_URL+'/rest/v1/projects?select=groups_json&limit=200').catch(()=>[]),
+      g(SUPABASE_URL+'/rest/v1/feedback?select=*&order=created_at.desc&limit=200'),
+    ]);
     document.getElementById('pendingCount').textContent = '（'+pending.length+'）';
     if (!pending.length) document.getElementById('pendingUsers').innerHTML = '<div class="empty">暂无</div>';
     else document.getElementById('pendingUsers').innerHTML = pending.map(u =>
       '<div class="card"><div class="row"><span class="name" style="cursor:pointer" title="点击修改昵称" onclick="setDisplayName(\''+u.id+'\')">'+esc(u.display_name||u.username)+' ✏️</span><span class="email">'+esc(u.username)+'</span><span class="date">'+new Date(u.created_at).toLocaleString('zh-CN')+'</span><button class="btn btn-suc btn-sm" onclick="approve(\''+u.id+'\')">✅ 批准</button><button class="btn btn-warn btn-sm" onclick="rejectUser(\''+u.id+'\')">✕ 拒绝</button></div></div>'
     ).join('');
 
-    // 全部用户
-    const all = await g(SUPABASE_URL+'/rest/v1/profiles?select=*&order=created_at.desc');
     document.getElementById('allUsers').innerHTML = all.map(u =>
       '<div class="card"><div class="row"><span class="name" style="cursor:pointer" title="点击修改昵称" onclick="setDisplayName(\''+u.id+'\')">'+esc(u.display_name||u.username)+' ✏️</span><span class="email">'+esc(u.username)+'</span>'+
       '<span class="badge '+(u.is_admin?'badge-admin':u.is_approved?'badge-ok':'badge-wait')+'">'+(u.is_admin?'管理员':u.is_approved?'已批准':'待审批')+'</span>'+
@@ -350,8 +355,6 @@ async function loadUsers() {
       '</div></div>'
     ).join('');
 
-    // 待补充基准价
-    const projects = await g(SUPABASE_URL+'/rest/v1/projects?select=groups_json&limit=200').catch(()=>[]);
     const counter = {};
     projects.forEach(p => { const g=p.groups_json; g?.forEach(gr=>{gr.sections?.forEach(s=>{s.rows?.forEach(r=>{if(!r.subs||!r.subs.length){const k=(r.name||'')+'|'+(r.unit||'');if(!counter[k])counter[k]={name:r.name,unit:r.unit||'',count:0};counter[k].count++}})})})});
     const items = Object.values(counter).sort((a,b)=>b.count-a.count);
@@ -360,8 +363,6 @@ async function loadUsers() {
       '<div style="padding:3px 0;display:flex;gap:6px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="background:#fff2f0;color:#cf1322;padding:0 6px;border-radius:3px;font-size:11px;font-weight:600">'+it.count+'次</span><span>'+esc(it.name)+'</span><span style="color:#888;font-size:11px">'+esc(it.unit)+'</span></div>'
     ).join('');
 
-    // 意见反馈
-    const fb = await g(SUPABASE_URL+'/rest/v1/feedback?select=*&order=created_at.desc&limit=200');
     document.getElementById('fbCount').textContent = '（'+fb.length+'条）';
     document.getElementById('feedbackItems').innerHTML = !fb.length ? '暂无' : fb.map(f =>
       '<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:12px">'+
@@ -761,6 +762,7 @@ let bmData = [];          // 已有基准价数据（从 Supabase 拉取）
 let bmParsed = [];        // 已解析的导入数据 [{row, status, matchId, ...}]
 let bmTeamList = [];      // 班组列表
 let bmDirty = {};         // 待保存的修改 { id: { field: newValue, ... } }
+let bmDataMap = new Map(); // bmData 的 id 索引，用于 O(1) 查找
 
 function bmMsg(text, isErr) {
   const el = document.getElementById('bmMsg');
@@ -809,6 +811,7 @@ async function refreshBmData() {
     const r = await fetch(SUPABASE_URL+'/rest/v1/benchmark_items?select=*&order=trade_team.asc',{headers:h});
     if (!r.ok) throw new Error(await r.text());
     bmData = await r.json();
+    bmDataMap = new Map(bmData.map(d => [d.id, d]));
     // 提取班组列表
     const teams = new Set();
     bmData.forEach(d => { if (d.trade_team) teams.add(d.trade_team); });
@@ -880,10 +883,12 @@ function renderBmBrowse() {
   }).join('');
 }
 
-/** 标记字段已修改（待保存），不直接写入数据库 */
+/** 标记字段已修改（待保存），不直接写入数据库，不触发全表重渲染 */
 function markBmDirty(id, field, inputEl) {
   const val = inputEl.value.trim();
-  if (['unit_price','auxiliary_price','material_price','material_loss_rate'].includes(field)) {
+  const item = bmDataMap.get(id);
+  const isNum = ['unit_price','auxiliary_price','material_price','material_loss_rate'].includes(field);
+  if (isNum) {
     const num = val === '' ? null : parseFloat(val.replace(/[^0-9.\-]/g,''));
     if (val !== '' && (isNaN(num) || num < 0)) {
       bmMsg('⚠️ 请输入有效的正数', true);
@@ -891,41 +896,38 @@ function markBmDirty(id, field, inputEl) {
       const dirty = bmDirty[id] || {};
       if (dirty[field] !== undefined) {
         inputEl.value = dirty[field] === null ? '' : parseFloat(dirty[field]).toFixed(2);
-      } else {
-        const item = bmData.find(d => d.id === id);
-        inputEl.value = item && item[field] !== null && item[field] !== undefined ? parseFloat(item[field]).toFixed(2) : '';
+      } else if (item) {
+        inputEl.value = item[field] !== null && item[field] !== undefined ? parseFloat(item[field]).toFixed(2) : '';
       }
       return;
     }
-    const item = bmData.find(d => d.id === id);
-    const origVal = item !== null && item !== undefined ? item[field] : undefined;
-    if ((num === null || num === undefined) && (origVal === null || origVal === undefined)) {
+    const origVal = item ? item[field] : undefined;
+    const same = (num === null || num === undefined) ? (origVal === null || origVal === undefined)
+      : (origVal !== null && Math.abs(num - origVal) < 0.001);
+    if (same) {
       delete bmDirty[id]?.[field];
       if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
-      updateBmDirtyUi(); renderBmBrowse(); return;
-    }
-    if (num !== null && origVal !== null && Math.abs(num - origVal) < 0.001) {
-      delete bmDirty[id]?.[field];
-      if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
-      updateBmDirtyUi(); renderBmBrowse(); return;
+      inputEl.classList.remove('bm-edit-dirty');
+      updateBmDirtyUi(); return;
     }
     if (!bmDirty[id]) bmDirty[id] = {};
     bmDirty[id][field] = num;
   } else {
-    const item = bmData.find(d => d.id === id);
     const origVal = item ? (item[field]||'') : '';
     if (val === origVal) {
       delete bmDirty[id]?.[field];
       if (bmDirty[id] && !Object.keys(bmDirty[id]).length) delete bmDirty[id];
-      updateBmDirtyUi(); renderBmBrowse(); return;
+      inputEl.classList.remove('bm-edit-dirty');
+      updateBmDirtyUi(); return;
     }
     if (!bmDirty[id]) bmDirty[id] = {};
     bmDirty[id][field] = val || null;
   }
+  inputEl.classList.add('bm-edit-dirty');
   updateBmDirtyUi();
-  renderBmBrowse();
 }
 
+/** 更新待保存状态的 UI（按钮显示/隐藏、计数） */
 function updateBmDirtyUi() {
   const count = Object.keys(bmDirty).length;
   const countEl = document.getElementById('bmDirtyCount');
@@ -939,6 +941,7 @@ function updateBmDirtyUi() {
     btnEl.style.display = 'inline-flex';
     numEl.textContent = count;
   }
+  // 同时更新 bmMsg 提示
   if (count > 0) {
     bmMsg('📝 已修改 ' + count + ' 项基准价，点击「💾 保存修改」写入数据库', false);
   } else {
@@ -946,6 +949,7 @@ function updateBmDirtyUi() {
   }
 }
 
+/** 批量保存所有待处理的修改到 Supabase */
 async function batchSaveBmChanges() {
   const ids = Object.keys(bmDirty);
   if (!ids.length) { bmMsg('⚠️ 没有待保存的修改', true); return; }
@@ -961,6 +965,7 @@ async function batchSaveBmChanges() {
   for (const id of ids) {
     const fields = bmDirty[id];
     try {
+      // 只发修改了的字段
       const body = {};
       for (const [field, val] of Object.entries(fields)) {
         body[field] = val;
@@ -969,7 +974,8 @@ async function batchSaveBmChanges() {
         method: 'PATCH', headers: {...h,'Content-Type':'application/json'}, body: JSON.stringify(body)
       });
       if (!r.ok) { const t = await r.text(); throw new Error(t.substring(0,60)); }
-      const item = bmData.find(d => d.id === id);
+      // 更新本地缓存
+      const item = bmDataMap.get(id);
       if (item) {
         for (const [field, val] of Object.entries(fields)) {
           item[field] = val;
@@ -982,6 +988,7 @@ async function batchSaveBmChanges() {
     }
   }
 
+  // 清空 dirty 状态
   bmDirty = {};
   updateBmDirtyUi();
   renderBmBrowse();

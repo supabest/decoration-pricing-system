@@ -254,7 +254,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
     <div class="sbar-hdr">
       <div class="sbar-title">基准价库</div>
       <div class="srch"><span class="srch-ic">🔍</span>
-        <input id="libSrch" type="text" placeholder="搜索子目名称、编号…" oninput="renderLib()">
+        <input id="libSrch" type="text" placeholder="搜索子目名称、编号…" oninput="_deb('lib',renderLib,200)">
       </div>
       <div class="ftabs" id="ftabs">
         <button class="ftab on" data-sh="all" onclick="setSheet('all',this)">全部</button>
@@ -322,7 +322,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
           <select id="mmCat" onchange="onMainMatCatChange()" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg1);color:var(--tx1);flex:1;min-width:120px">
             <option value="">— 全部品类 —</option>
           </select>
-          <input id="mmSearch" type="text" placeholder="🔍 搜索" oninput="renderMainMatList()" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg1);color:var(--tx1);width:100px">
+          <input id="mmSearch" type="text" placeholder="🔍 搜索" oninput="_deb('mm',renderMainMatList,200)" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg1);color:var(--tx1);width:100px">
         </div>
         <div id="mmListWrap" style="overflow-y:auto;flex:1;min-height:180px;max-height:56vh;border:1px solid var(--border);border-radius:8px">
           <table style="width:100%;border-collapse:collapse;font-size:11px" id="mmTable">
@@ -434,7 +434,7 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
 <div class="modal-ov hidden" id="pickerMod">
   <div class="modal" style="width:560px;max-height:78vh">
     <div class="modal-hdr"><span class="modal-ttl">挂子目 — 选择基准价子目</span><button class="modal-x" onclick="closePicker()">×</button></div>
-    <div class="modal-srch"><input id="pkSrch" type="text" placeholder="搜索子目名称、编号…" oninput="renderPicker()"></div>
+    <div class="modal-srch"><input id="pkSrch" type="text" placeholder="搜索子目名称、编号…" oninput="_deb('pk',renderPicker,200)"></div>
     <div class="modal-list" id="pkList" style="max-height:calc(78vh - 110px)"></div>
   </div>
 </div>
@@ -534,10 +534,12 @@ if (window !== window.top) { document.querySelectorAll('.iframe-hide').forEach(e
 const SUPABASE_URL = 'https://lnvtykghcpsjpwczbqsm.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_VQNxLrsKEZuZDeAGa7xOAg__SUeFH_Q';
 const _h = ()=>{const h={'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY};const t=localStorage.getItem('sb-access-token');if(t)h['Authorization']='Bearer '+t;return h};
-const _get=async(t,p)=>{try{const q=new URLSearchParams();q.set('select',p?.select||'*');if(p?.eq)q.set(p.eq.col,'eq.'+encodeURIComponent(p.eq.val));if(p?.order)q.set('order',p.order.col+(p.order.asc?'.asc':'.desc'));if(p?.limit)q.set('limit',''+p.limit);const c=new AbortController();const tm=setTimeout(()=>c.abort(),10000);const r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+q,{headers:_h(),signal:c.signal});clearTimeout(tm);if(!r.ok){const t=await r.text();if(t.includes('JWT expired')){localStorage.removeItem('sb-access-token');localStorage.removeItem('sb-refresh-token');window.location.href='index.html'}return[]}return await r.json()}catch(e){clearTimeout(tm);return[]}};
+const _get=async(t,p)=>{let c,tm;try{const q=new URLSearchParams();q.set('select',p?.select||'*');if(p?.eq)q.set(p.eq.col,'eq.'+encodeURIComponent(p.eq.val));if(p?.order)q.set('order',p.order.col+(p.order.asc?'.asc':'.desc'));if(p?.limit)q.set('limit',''+p.limit);c=new AbortController();tm=setTimeout(()=>c.abort(),10000);const r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+q,{headers:_h(),signal:c.signal});clearTimeout(tm);if(!r.ok){const t=await r.text();if(t.includes('JWT expired')){localStorage.removeItem('sb-access-token');localStorage.removeItem('sb-refresh-token');window.location.href='index.html'}return[]}return await r.json()}catch(e){clearTimeout(tm);return[]}};
 const _post=async(t,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t,{method:'POST',headers:h,body:JSON.stringify(b)})};
 const _patch=async(t,id,b)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'PATCH',headers:h,body:JSON.stringify(b)})};
 const _del=async(t,id)=>{const h=_h();h['Prefer']='return=minimal';await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{method:'DELETE',headers:h})};
+// 防抖工具：延迟执行以避免高频触发
+let _debT={};function _deb(n,fn,ms){clearTimeout(_debT[n]);_debT[n]=setTimeout(fn,ms);}
 const CURRENT_USER = JSON.parse(localStorage.getItem('sb-user')||'null');
 document.addEventListener('DOMContentLoaded', function() { var el = document.getElementById('userNameDisplay'); if(el && CURRENT_USER) el.textContent = CURRENT_USER.display_name || CURRENT_USER.email || CURRENT_USER.id || ''; });
 let AI_KNOWLEDGE = {tips:[],synonyms:[],rules:[]};
@@ -547,6 +549,7 @@ let DB_EMBEDDED = {"泥水班组":[{"id":"NS-01","name":"地面-水泥砂浆找�
 function rebuildAll() {
   ALL = [];
   Object.keys(DB_EMBEDDED).forEach(sh => DB_EMBEDDED[sh].forEach(it => ALL.push({...it, sheet:sh})));
+  rebuildBenchMap();
 }
 rebuildAll();
 let SHEETS = Object.keys(DB_EMBEDDED);
@@ -563,6 +566,7 @@ async function loadFromSupabase() {
     ALL = [];
     Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
     SHEETS = Object.keys(DB);
+    rebuildBenchMap();
     return true;
   }
   return false;
@@ -579,7 +583,7 @@ let globalMgmtRate = 0, globalProfitRate = 0;  // 管理费率%、利润率%（�
 function onGlobalRateChange() {
   globalMgmtRate = parseFloat(document.getElementById('mgmtRateInp').value) || 0;
   globalProfitRate = parseFloat(document.getElementById('profitRateInp').value) || 0;
-  renderBoq();
+  _deb('rate',renderBoq,150);
 }
 let hourlyRate = 350;  // 时工单价（元/工日），可调整
 let drag = null;
@@ -616,6 +620,7 @@ function init() {
       ALL = [];
       Object.keys(DB).forEach(sh => { (DB[sh]||[]).forEach(it => ALL.push({...it, sheet: sh})); });
       SHEETS = Object.keys(DB);
+      rebuildBenchMap();
     }
     // 构建侧栏
     const tabs = document.getElementById('ftabs');
@@ -685,10 +690,12 @@ function getAllRows() {
   groups.forEach(g=>g.sections.forEach(s=>s.rows.forEach(r=>rows.push(r))));
   return rows;
 }
-function findRow(rid) {
-  for(const g of groups) for(const s of g.sections) for(const r of s.rows) if(r.id===rid) return r;
-  return null;
+let rowMap = new Map();
+function rebuildRowMap() {
+  rowMap.clear();
+  getAllRows().forEach(r => rowMap.set(r.id, r));
 }
+function findRow(rid) { return rowMap.get(rid) || null; }
 function makeRow(d={}) {
   return {id:uid++,name:d.name||'',spec:d.spec||'',unit:d.unit||'',
     qty:d.qty||'',remark:d.remark||'',open:false,subs:[],aiNote:null,hourlyMode:false,
@@ -735,7 +742,16 @@ function updCoef(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find
 function updConv(rid,bid,bsh,val) { const r=findRow(rid); const s=r&&r.subs.find(s=>s.bid===bid&&s.bsh===bsh); if(s){s.conv=parseFloat(val)||1.0;updateSum();} }
 
 // ═══════════ PRICING ═══════════
-function getBench(id,sh) { return (typeof DB!=='undefined'&&DB[sh])?DB[sh].find(i=>i.id===id):null; }
+// 快速查找映射表
+let benchMap = {};
+function rebuildBenchMap() {
+  benchMap = {};
+  if (typeof DB === 'undefined') return;
+  Object.keys(DB).forEach(sh => {
+    DB[sh].forEach(i => { benchMap[sh+'|'+i.id] = i; });
+  });
+}
+function getBench(id,sh) { return benchMap[sh+'|'+id] || null; }
 function effPrice(sub) {
   const it=getBench(sub.bid,sub.bsh);
   return it ? it.price*sub.coef*globalCoef*(sub.conv||1.0) : 0;
@@ -1055,7 +1071,7 @@ function onPricePanelChange(inp) {
   } else {
     userPriceOverrides[name] = parseFloat(val);
   }
-  recomputeAllAux();
+  // recomputeAllAux 会在 renderBoq 内部调用，无需重复
   renderBoq();
   renderPricePanel();
 }
@@ -1064,7 +1080,7 @@ function resetAllPrices() {
   if (!Object.keys(userPriceOverrides).length) return;
   if (!confirm('确认清空所有自定义价格，恢复使用默认信息价？')) return;
   userPriceOverrides = {};
-  recomputeAllAux();
+  // recomputeAllAux 会在 renderBoq 内部调用
   renderBoq();
   renderPricePanel();
   toast('✓ 已恢复默认信息价');
@@ -1175,7 +1191,8 @@ function grpTotal(g) { return g.sections.reduce((a,s)=>a+secTotal(s),0); }
 function renderBoq() {
   const main = document.getElementById('boqMain');
   if (!groups.length) { updateSum(); return; }
-  recomputeAllAux();  // 预计算所有行辅材费，确保 compUnitPrice 读到非0值
+  recomputeAllAux();
+  rebuildRowMap();
   let html = '';
   let globalIdx = 0;
 
@@ -1238,7 +1255,7 @@ function renderBoq() {
           '<td class="c"><input class="ri ri-sm ri-c" style="width:100%" value="'+esc(r.unit)+'" placeholder="单位" onchange="updField('+r.id+',\'unit\',this.value)"></td>' +
           '<td class="r"><input class="qty-i" type="text" inputmode="decimal" value="'+r.qty+'" placeholder="0.00" oninput="updField('+r.id+',\'qty\',this.value)"></td>' +
           '<td class="r-price r">'+fmt(up)+'</td>' +
-          '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(computeAuxForRow(r).total)+'</span></td>' +
+          '<td class="r"><span style="color:var(--tx2);font-variant-numeric:tabular-nums">'+fmt(r.auxCost)+'</span></td>' +
           '<td class="r"><div style="display:flex;align-items:center;gap:2px"><input class="cof-i" style="width:48px" type="text" inputmode="decimal" value="'+r.matPrice+'" placeholder="0" title="主材单价" oninput="updField('+r.id+',\'matPrice\',this.value)"><button class="btn btn-ghost btn-sm" style="padding:0 3px;font-size:10px" onclick="event.stopPropagation();openMainMatPanel('+r.id+')" title="从主材库选价">📦</button></div></td>' +
           '<td class="r"><input class="cof-i" style="width:40px" type="text" inputmode="decimal" value="'+r.wasteRate+'" title="损耗率%" oninput="updField('+r.id+',\'wasteRate\',this.value)"></td>' +
           '<td class="r">'+fmt((up||0)*(globalMgmtRate/100))+'</td>' +
@@ -1307,7 +1324,6 @@ function renderBoq() {
     html += '</tbody></table>';
   });
   main.innerHTML = html;
-  updateSum();
   updateSum();
 }
 function importBoq() { document.getElementById('fileIn').click(); }
@@ -2299,10 +2315,8 @@ async function startAiPricing() {
         let added=0;
         matched.forEach(m=>{
           // 严格校验：sheet名必须在DB中存在，id必须存在
-          const sheetData=DB[m.sheet];
-          if(!sheetData){console.warn('AI返回了不存在的sheet:',m.sheet);return;}
-          const it=sheetData.find(i=>i.id===m.id);
-          if(!it){console.warn('AI返回了不存在的id:',m.id,'in',m.sheet);return;}
+          const it=getBench(m.id,m.sheet);
+          if(!it){console.warn('AI返回了不存在的子目:',m.sheet,m.id);return;}
           if(r.subs.find(s=>s.bid===m.id&&s.bsh===m.sheet)) return;
           r.subs.push({bid:m.id,bsh:m.sheet,coef:1.0,conv:1.0});
           added++;
@@ -2317,10 +2331,11 @@ async function startAiPricing() {
     } catch(e) {
       r.aiNote={conf:0,status:'err',note:'请求失败:'+e.message.substring(0,50)}; fail++;
     }
-    done++; setP(done<total?'处理中…':'完成'); renderBoq();
-    await new Promise(res=>setTimeout(res,350));
+    done++; setP(done<total?'处理中…':'完成');
+    if (done % 5 === 0 || done === total) renderBoq();
   }
 
+  renderBoq();
   aiRunning=false;
   document.getElementById('aiBtn').disabled=false;
   document.getElementById('aiStopBtn').classList.add('hidden');
